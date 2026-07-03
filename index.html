@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GAVS Inventory</title>
+<style>
+  :root{
+    --bg:#0d1117;
+    --panel:#161b22;
+    --panel2:#1c2330;
+    --line:#2a3241;
+    --text:#e6edf3;
+    --sub:#8b96a5;
+    --amber:#ffb454;
+    --amber-dim:#4a3a1f;
+    --green:#5fd08a;
+    --red:#ff6b6b;
+    --blue:#5fa8ff;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+  body{padding-bottom:90px;}
+  ::-webkit-scrollbar{display:none;}
+
+  header{
+    position:sticky;top:0;z-index:50;
+    background:linear-gradient(180deg,#11161f 0%,#0d1117 100%);
+    border-bottom:1px solid var(--line);
+    padding:14px 16px 10px;
+  }
+  .h-top{display:flex;align-items:center;justify-content:space-between;}
+  .h-title{display:flex;align-items:center;gap:9px;}
+  .h-title .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);
+    box-shadow:0 0 8px var(--amber);}
+  .h-title h1{font-size:16px;margin:0;letter-spacing:.3px;font-weight:700;}
+  .h-title .sub{font-size:10.5px;color:var(--sub);letter-spacing:1.5px;text-transform:uppercase;}
+  .date-row{display:flex;align-items:center;gap:8px;margin-top:12px;}
+  .date-row input[type=date]{
+    flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:9px 10px;border-radius:8px;font-size:14px;
+  }
+  .date-nav{background:var(--panel2);border:1px solid var(--line);color:var(--amber);
+    width:36px;height:36px;border-radius:8px;font-size:16px;display:flex;align-items:center;justify-content:center;}
+
+  .tabs{display:flex;gap:6px;margin-top:12px;}
+  .tab{flex:1;text-align:center;padding:9px 4px;border-radius:8px;font-size:12.5px;font-weight:600;
+    background:var(--panel2);color:var(--sub);border:1px solid var(--line);}
+  .tab.active{background:var(--amber-dim);color:var(--amber);border-color:#6a5228;}
+
+  main{padding:14px 14px 20px;}
+  .section-label{font-size:11px;text-transform:uppercase;letter-spacing:1.4px;color:var(--sub);
+    margin:18px 4px 8px;font-weight:700;}
+  .section-label:first-child{margin-top:0;}
+
+  /* Venue cards */
+  .venue-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    margin-bottom:10px;overflow:hidden;}
+  .venue-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;}
+  .venue-name{font-weight:700;font-size:15px;}
+  .venue-meta{font-size:11px;color:var(--sub);margin-top:2px;}
+  .add-btn{background:var(--amber);color:#211500;border:none;border-radius:7px;
+    padding:7px 12px;font-size:12.5px;font-weight:700;}
+  .venue-items{padding:0 14px 12px;}
+  .item-row{display:flex;justify-content:space-between;align-items:center;
+    padding:7px 0;border-top:1px solid var(--line);font-size:13px;}
+  .item-row:first-child{border-top:none;}
+  .item-row .qty{color:var(--amber);font-weight:700;font-variant-numeric:tabular-nums;}
+  .item-row .del{color:var(--red);font-size:16px;padding:0 4px;margin-left:8px;}
+  .empty-venue{color:var(--sub);font-size:12.5px;padding:4px 0 10px;}
+
+  /* Inventory list */
+  .cat-block{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    margin-bottom:10px;}
+  .cat-head{display:flex;justify-content:space-between;align-items:center;
+    padding:12px 14px;font-weight:700;font-size:13.5px;}
+  .cat-head .cat-add{color:var(--blue);font-size:12px;font-weight:600;}
+  .inv-item{display:flex;justify-content:space-between;align-items:center;
+    padding:9px 14px;border-top:1px solid var(--line);}
+  .inv-item .nm{font-size:13.5px;}
+  .inv-item .stat{display:flex;align-items:center;gap:8px;}
+  .avail-bar{width:56px;height:5px;background:#2a3241;border-radius:3px;overflow:hidden;}
+  .avail-bar .fill{height:100%;background:var(--green);}
+  .avail-bar .fill.low{background:var(--amber);}
+  .avail-bar .fill.zero{background:var(--red);}
+  .avail-text{font-size:11px;color:var(--sub);min-width:50px;text-align:right;font-variant-numeric:tabular-nums;}
+  .inv-item .edit{color:var(--sub);font-size:14px;padding:2px 6px;}
+
+  /* FAB */
+  .fab{position:fixed;bottom:20px;right:18px;z-index:60;
+    background:var(--amber);color:#211500;width:54px;height:54px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;
+    box-shadow:0 4px 14px rgba(0,0,0,.5);border:none;}
+
+  /* Modal / sheet */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none;}
+  .overlay.show{display:block;}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:101;background:var(--panel);
+    border-top:1px solid var(--line);border-radius:16px 16px 0 0;
+    max-height:82vh;display:flex;flex-direction:column;transform:translateY(100%);
+    transition:transform .22s ease;}
+  .sheet.show{transform:translateY(0);}
+  .sheet-handle{width:36px;height:4px;background:var(--line);border-radius:2px;margin:10px auto 4px;}
+  .sheet-head{padding:6px 18px 12px;display:flex;justify-content:space-between;align-items:center;
+    border-bottom:1px solid var(--line);}
+  .sheet-head h3{margin:0;font-size:15px;}
+  .sheet-head .close{color:var(--sub);font-size:22px;padding:4px 8px;}
+  .sheet-body{overflow-y:auto;padding:8px 18px 18px;}
+  .sheet-foot{padding:12px 18px 18px;border-top:1px solid var(--line);}
+
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11.5px;color:var(--sub);margin-bottom:5px;text-transform:uppercase;letter-spacing:.8px;}
+  .field select,.field input[type=text],.field input[type=number]{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:10px 11px;border-radius:8px;font-size:14.5px;}
+
+  .btn{width:100%;padding:13px;border-radius:9px;border:none;font-weight:700;font-size:14.5px;}
+  .btn-primary{background:var(--amber);color:#211500;}
+  .btn-outline{background:transparent;border:1px solid var(--line);color:var(--text);margin-top:8px;}
+  .btn-danger{background:transparent;border:1px solid var(--red);color:var(--red);}
+
+  .pick-cat{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--amber);
+    margin:10px 0 0;font-weight:700;display:flex;justify-content:space-between;align-items:center;
+    background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:11px 12px;
+    cursor:pointer;user-select:none;}
+  .pick-cat .chev{transition:transform .18s ease;font-size:12px;color:var(--sub);}
+  .pick-cat.open .chev{transform:rotate(90deg);}
+  .pick-cat .cnt{font-size:10px;color:var(--sub);font-weight:600;margin-left:auto;margin-right:8px;letter-spacing:.5px;}
+  .pick-group{display:none;padding:0 4px;}
+  .pick-group.open{display:block;}
+
+  .pick-search{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:10px 12px;border-radius:8px;font-size:14px;margin-bottom:4px;}
+  .pick-search::placeholder{color:var(--sub);}
+
+  .repair-tag{font-size:10px;color:var(--red);font-weight:700;margin-left:6px;}
+
+  .where-row{display:flex;justify-content:space-between;align-items:center;
+    padding:10px 0;border-top:1px solid var(--line);font-size:13.5px;}
+  .where-row:first-child{border-top:none;}
+  .where-loc{display:flex;flex-direction:column;gap:2px;}
+  .where-loc .wl-sub{font-size:11px;color:var(--sub);}
+  .where-qty{font-weight:700;color:var(--amber);font-variant-numeric:tabular-nums;}
+  .where-total{display:flex;justify-content:space-between;padding:12px 0 2px;margin-top:6px;
+    border-top:2px solid var(--line);font-weight:700;font-size:13.5px;}
+  .pick-row{display:flex;justify-content:space-between;align-items:center;
+    padding:9px 0;border-top:1px solid var(--line);}
+  .pick-row:first-of-type{border-top:none;}
+  .pick-nm{font-size:13.5px;}
+  .pick-nm .av{display:block;font-size:10.5px;color:var(--sub);margin-top:1px;}
+  .stepper{display:flex;align-items:center;gap:10px;}
+  .stepper button{width:28px;height:28px;border-radius:6px;background:var(--panel2);
+    border:1px solid var(--line);color:var(--text);font-size:16px;line-height:1;}
+  .stepper .val{min-width:22px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;}
+
+  .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+    background:#1c2330;border:1px solid var(--line);color:var(--text);
+    padding:9px 16px;border-radius:20px;font-size:12.5px;z-index:200;opacity:0;
+    transition:opacity .25s;pointer-events:none;}
+  .toast.show{opacity:1;}
+
+  .conflict-box{background:var(--amber-dim);border:1px solid #6a5228;border-radius:8px;
+    padding:10px 12px;font-size:12.5px;color:var(--amber);margin-bottom:12px;}
+
+  .empty-state{text-align:center;color:var(--sub);font-size:13px;padding:40px 20px;}
+
+  .range-toggle{display:flex;background:var(--panel2);border:1px solid var(--line);
+    border-radius:8px;overflow:hidden;margin-bottom:12px;}
+  .range-toggle div{flex:1;text-align:center;padding:9px 4px;font-size:12.5px;font-weight:600;color:var(--sub);}
+  .range-toggle div.active{background:var(--amber-dim);color:var(--amber);}
+  .range-dates{display:flex;gap:8px;}
+  .range-dates .field{flex:1;}
+  .conflict-list{margin:6px 0 0;padding-left:16px;font-size:12px;}
+
+  .venue-head-actions{display:flex;align-items:center;gap:10px;}
+  .icon-btn{color:var(--sub);font-size:15px;padding:2px 4px;}
+  .icon-btn.edit-ic{color:var(--blue);}
+  .add-venue-inline{background:var(--panel2);border:1px dashed var(--line);border-radius:var(--radius);
+    padding:12px 14px;text-align:center;color:var(--amber);font-size:13px;font-weight:600;margin-bottom:10px;}
+
+  /* Phase badges */
+  .phase-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+    padding:3px 9px;border-radius:12px;letter-spacing:.3px;}
+  .phase-out{background:#1f3a4a;color:#6fc5ff;}
+  .phase-event{background:#1f4a2e;color:#5fd08a;}
+  .phase-back{background:#4a2e1f;color:#ffb454;}
+  .phase-idle{background:#2a3241;color:var(--sub);}
+  .truck-anim{display:inline-block;}
+  .phase-out .truck-anim{animation:truckGo 1.6s ease-in-out infinite;}
+  .phase-back .truck-anim{display:inline-block;transform:scaleX(-1);animation:truckBack 1.6s ease-in-out infinite;}
+  @keyframes truckGo{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+  @keyframes truckBack{0%,100%{transform:scaleX(-1) translateX(0)}50%{transform:scaleX(-1) translateX(4px)}}
+  @media (prefers-reduced-motion: reduce){
+    .truck-anim{animation:none !important;}
+  }
+
+  .booking-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    margin-bottom:10px;padding:12px 14px;}
+  .booking-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .booking-venue{font-weight:700;font-size:15px;}
+  .booking-window{font-size:11px;color:var(--sub);margin-top:3px;}
+  .booking-phases{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+  .booking-items{margin-top:10px;border-top:1px solid var(--line);}
+  .phase-range-block{border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:10px;}
+  .phase-range-block .prb-title{font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .prb-out .prb-title{color:#6fc5ff;}
+  .prb-event .prb-title{color:#5fd08a;}
+  .prb-back .prb-title{color:#ffb454;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-top">
+    <div class="h-title">
+      <div class="dot"></div>
+      <div>
+        <h1>GAVS Inventory</h1>
+        <div class="sub">Grover Audio Visual Services</div>
+      </div>
+    </div>
+  </div>
+  <div class="date-row">
+    <button class="date-nav" onclick="shiftDate(-1)">‹</button>
+    <input type="date" id="dateInput">
+    <button class="date-nav" onclick="shiftDate(1)">›</button>
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-tab="assign" onclick="switchTab('assign')">Assign</div>
+    <div class="tab" data-tab="inventory" onclick="switchTab('inventory')">Inventory</div>
+    <div class="tab" data-tab="venues" onclick="switchTab('venues')">Venues</div>
+  </div>
+</header>
+
+<main id="mainArea"></main>
+
+<button class="fab" id="fabBtn" onclick="openAddAssignment()">+</button>
+
+<div class="overlay" id="overlay" onclick="closeAllSheets()"></div>
+
+<!-- Assign sheet: pick venue then items -->
+<div class="sheet" id="assignSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3>New Booking</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div class="field"><label>Venue</label><select id="pickerVenueSelect" onchange="renderPickerItems()"></select></div>
+
+    <div class="phase-range-block prb-out">
+      <div class="prb-title"><span>🚚</span> Transit Out (optional)</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="outFrom" onchange="renderPickerItems()"></div>
+        <div class="field"><label>To</label><input type="date" id="outTo" onchange="renderPickerItems()"></div>
+      </div>
+    </div>
+    <div class="phase-range-block prb-event">
+      <div class="prb-title"><span>🎪</span> Event Days</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="evFrom" onchange="renderPickerItems()"></div>
+        <div class="field"><label>To</label><input type="date" id="evTo" onchange="renderPickerItems()"></div>
+      </div>
+    </div>
+    <div class="phase-range-block prb-back">
+      <div class="prb-title"><span>🚚</span> Transit Back (optional)</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="backFrom" onchange="renderPickerItems()"></div>
+        <div class="field"><label>To</label><input type="date" id="backTo" onchange="renderPickerItems()"></div>
+      </div>
+    </div>
+
+    <div id="assignConflictArea"></div>
+    <input type="text" class="pick-search" id="pickSearch" placeholder="🔍 Search items… e.g. V8, mixer" oninput="filterPickerItems()">
+    <div id="assignBody"></div>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="confirmAssignment()">Book Inventory</button></div>
+</div>
+
+<!-- Add/Edit inventory item sheet -->
+<div class="sheet" id="itemSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3 id="itemSheetTitle">Add Item</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div class="field"><label>Category</label>
+      <select id="itemCatSelect"></select>
+    </div>
+    <div class="field"><label>Item Name</label>
+      <input type="text" id="itemNameInput" placeholder="e.g. DNB V8">
+    </div>
+    <div class="field"><label>Total Quantity</label>
+      <input type="number" id="itemQtyInput" placeholder="e.g. 28" min="0">
+    </div>
+    <div class="field"><label>In Repair / Damaged (excluded from available)</label>
+      <input type="number" id="itemRepairInput" placeholder="0" min="0">
+    </div>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn btn-primary" onclick="saveItem()">Save Item</button>
+    <button class="btn btn-danger" id="deleteItemBtn" style="display:none;margin-top:8px;" onclick="deleteItem()">Delete Item</button>
+  </div>
+</div>
+
+<!-- Where is it sheet -->
+<div class="sheet" id="whereSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3 id="whereTitle">Where is it?</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body" id="whereBody"></div>
+</div>
+
+<!-- Add category sheet -->
+<div class="sheet" id="catSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3>Add Category</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div class="field"><label>Category Name</label>
+      <input type="text" id="catNameInput" placeholder="e.g. Lighting">
+    </div>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="saveCategory()">Add Category</button></div>
+</div>
+
+<!-- Add/Edit venue sheet -->
+<div class="sheet" id="venueSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3 id="venueSheetTitle">Add Venue</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div class="field"><label>Venue Name</label>
+      <input type="text" id="venueNameInput" placeholder="e.g. Kolkata Ideaco">
+    </div>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn btn-primary" onclick="saveVenue()">Save Venue</button>
+    <button class="btn btn-danger" id="deleteVenueBtn" style="display:none;margin-top:8px;" onclick="deleteVenueFromSheet()">Delete Venue</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- DATA LAYER (localStorage, Firebase-shaped for easy migration) ---------------- */
+const STORE_KEY = 'gavs_inv_v1';
+
+function seedData(){
+  return {
+    categories: [
+      { id:'dnb', name:'DNB', items:[
+        {id:'dnb_ksl8', name:'KSL 8', totalQty:12},
+        {id:'dnb_ksl12', name:'KSL 12', totalQty:4},
+        {id:'dnb_slgsub', name:'SLG Sub', totalQty:8},
+        {id:'dnb_v8', name:'V8', totalQty:28},
+        {id:'dnb_v12', name:'V12', totalQty:4},
+        {id:'dnb_b22', name:'B22', totalQty:8},
+        {id:'dnb_t10', name:'T10', totalQty:12},
+        {id:'dnb_b6', name:'B6', totalQty:8},
+        {id:'dnb_m4', name:'M4 Monitor', totalQty:12},
+        {id:'dnb_d40', name:'D40 Amplifier', totalQty:12},
+        {id:'dnb_d80', name:'D80 Amplifier', totalQty:4},
+        {id:'dnb_d90', name:'D90 Amplifier', totalQty:4},
+      ]},
+      { id:'jbl', name:'JBL', items:[
+        {id:'jbl_vrx', name:'VRX', totalQty:90},
+        {id:'jbl_base', name:'Base', totalQty:4},
+        {id:'jbl_crown', name:'Crown Amplifier', totalQty:10},
+        {id:'jbl_srx', name:'SRX Monitor', totalQty:12},
+      ]},
+      { id:'rcf', name:'RCF', items:[
+        {id:'rcf_hdl20', name:'HDL 20', totalQty:24},
+        {id:'rcf_base8002', name:'Base 8002', totalQty:6},
+        {id:'rcf_monitor', name:'Monitor', totalQty:12},
+      ]},
+      { id:'amp', name:'Amplifiers', items:[
+        {id:'amp_aq8', name:'AQ 8', totalQty:100},
+        {id:'amp_aq12', name:'AQ 12', totalQty:20},
+        {id:'amp_is500', name:'IS 500', totalQty:10},
+      ]},
+      { id:'spk', name:'Speakers', items:[
+        {id:'spk_q12', name:'Q12', totalQty:120},
+      ]},
+      { id:'mixd', name:'Audio Mixers (Digital)', items:[
+        {id:'mix_digico', name:'Digico Quantum 338', totalQty:1},
+        {id:'mix_avids6l', name:'Avid S6L', totalQty:1},
+        {id:'mix_dlive', name:'Dlive 7000S', totalQty:1},
+        {id:'mix_sq7', name:'SQ 7', totalQty:1},
+        {id:'mix_qu7', name:'QU 7', totalQty:1},
+        {id:'mix_m32', name:'Midas M32', totalQty:1},
+        {id:'mix_siexp', name:'Si Expression', totalQty:1},
+        {id:'mix_siimp', name:'Si Impact', totalQty:1},
+      ]},
+      { id:'mixa', name:'Audio Mixers (Analog)', items:[
+        {id:'mixa_y32', name:'Yamaha 32 Channel', totalQty:1},
+        {id:'mixa_y16', name:'Yamaha 16 Channel', totalQty:1},
+        {id:'mixa_sc16', name:'Soundcraft 16 Channel', totalQty:1},
+      ]},
+      { id:'mikes', name:'Mikes', items:[
+        {id:'mic_rackslx4d', name:'Shure Rack SLX4D', totalQty:1},
+        {id:'mic_handslxd', name:'Shure Hand SLXD', totalQty:1},
+        {id:'mic_collarslxd', name:'Shure Collar SLXD', totalQty:1},
+        {id:'mic_podium', name:'Shure Podium Mike', totalQty:1},
+        {id:'mic_axient', name:'Shure Axient Mike', totalQty:1},
+      ]},
+      { id:'cables', name:'Cables & Accessories', items:[
+        {id:'acc_extboard', name:'Extension Boards', totalQty:1},
+        {id:'acc_speakon', name:'Speakon Cables', totalQty:1},
+        {id:'acc_xlr', name:'XLR Cables', totalQty:1},
+      ]},
+    ],
+    venues: [
+      {id:'v1', name:'Kolkata Ideaco'},
+    ],
+    bookings: [],
+    dlog: {}
+  };
+}
+
+function loadData(){
+  let raw = localStorage.getItem(STORE_KEY);
+  if(!raw){ const seeded = seedData(); localStorage.setItem(STORE_KEY, JSON.stringify(seeded)); return seeded; }
+  try{
+    const d = JSON.parse(raw);
+    if(!d.bookings) d.bookings = [];   // migration from v2
+    if(!d.dlog) d.dlog = {};
+    return d;
+  }catch(e){ const seeded = seedData(); localStorage.setItem(STORE_KEY, JSON.stringify(seeded)); return seeded; }
+}
+function saveData(){ localStorage.setItem(STORE_KEY, JSON.stringify(DATA)); }
+
+let DATA = loadData();
+let currentDate = new Date().toISOString().slice(0,10);
+let currentTab = 'assign';
+let editingItemId = null, editingItemCatId = null;
+let assignPickerVenueId = null;
+let assignPickerQtys = {}; // itemId -> qty chosen in current picker session
+
+function dateListBetween(from, to){
+  const dates = [];
+  let d = new Date(from+'T00:00:00');
+  const end = new Date(to+'T00:00:00');
+  if(end < d) return dates;
+  while(d <= end){
+    dates.push(d.toISOString().slice(0,10));
+    d.setDate(d.getDate()+1);
+  }
+  return dates;
+}
+// Minimum available qty for an item across a set of dates (excluding a venue's own existing bookings)
+function availableQtyAcrossDates(itemId, dates, excludeVenueId){
+  let min = Infinity;
+  dates.forEach(d=>{
+    const av = availableQty(itemId, d, excludeVenueId);
+    if(av < min) min = av;
+  });
+  return min===Infinity ? 0 : min;
+}
+
+/* ---------------- HELPERS ---------------- */
+function uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+function findItem(itemId){
+  for(const c of DATA.categories){
+    const it = c.items.find(i=>i.id===itemId);
+    if(it) return {item:it, cat:c};
+  }
+  return null;
+}
+function dayLog(date){
+  if(!DATA.dlog[date]) DATA.dlog[date] = {venues:{}};
+  if(!DATA.dlog[date].venues) DATA.dlog[date].venues = {};
+  return DATA.dlog[date];
+}
+function assignedQtyForItem(itemId, date, excludeVenueId){
+  // Legacy dlog (v1/v2 single-date assignments)
+  let total = 0;
+  const dl = DATA.dlog[date];
+  if(dl){
+    for(const vId in dl.venues){
+      if(excludeVenueId && vId===excludeVenueId) continue;
+      const v = dl.venues[vId];
+      if(v[itemId]) total += v[itemId];
+    }
+  }
+  // Bookings: item is blocked for the whole window (transit out → transit back)
+  DATA.bookings.forEach(b=>{
+    if(excludeVenueId && b.venueId===excludeVenueId) return;
+    if(dateInBookingWindow(b, date) && b.items[itemId]) total += b.items[itemId];
+  });
+  return total;
+}
+
+/* ---- Booking helpers ---- */
+function bookingWindow(b){
+  const from = (b.transitOut && b.transitOut.from) ? b.transitOut.from : b.event.from;
+  const to = (b.transitBack && b.transitBack.to) ? b.transitBack.to : b.event.to;
+  return {from, to};
+}
+function dateInRange(date, from, to){ return from && to && date >= from && date <= to; }
+function dateInBookingWindow(b, date){
+  const w = bookingWindow(b);
+  return dateInRange(date, w.from, w.to);
+}
+// Returns 'out' | 'event' | 'back' | null for a booking on a given date
+function bookingPhaseOn(b, date){
+  if(b.transitOut && dateInRange(date, b.transitOut.from, b.transitOut.to)) return 'out';
+  if(dateInRange(date, b.event.from, b.event.to)) return 'event';
+  if(b.transitBack && dateInRange(date, b.transitBack.from, b.transitBack.to)) return 'back';
+  return null;
+}
+function phaseBadge(phase){
+  if(phase==='out') return '<span class="phase-badge phase-out"><span class="truck-anim">🚚</span> In Transit — Going</span>';
+  if(phase==='event') return '<span class="phase-badge phase-event">🎪 At Event</span>';
+  if(phase==='back') return '<span class="phase-badge phase-back"><span class="truck-anim">🚚</span> In Transit — Returning</span>';
+  return '<span class="phase-badge phase-idle">Scheduled</span>';
+}
+function availableQty(itemId, date, excludeVenueId){
+  const info = findItem(itemId);
+  if(!info) return 0;
+  const repair = info.item.repairQty || 0;
+  return info.item.totalQty - repair - assignedQtyForItem(itemId, date, excludeVenueId);
+}
+
+/* ---------------- RENDER: TABS ---------------- */
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  document.getElementById('fabBtn').style.display = (tab==='assign') ? 'flex' : 'flex';
+  document.getElementById('fabBtn').onclick = tab==='assign' ? openAddAssignment
+    : tab==='inventory' ? openAddCategory : openAddVenue;
+  render();
+}
+
+function render(){
+  if(currentTab==='assign') renderAssign();
+  else if(currentTab==='inventory') renderInventory();
+  else renderVenues();
+}
+
+/* ---------------- ASSIGN TAB ---------------- */
+function renderAssign(){
+  const main = document.getElementById('mainArea');
+  let html = `<div class="add-venue-inline" onclick="openAddVenue()">+ Add New Venue</div>`;
+
+  if(DATA.venues.length===0){
+    main.innerHTML = html + '<div class="empty-state">No venues yet. Add one above.</div>';
+    return;
+  }
+
+  html += '<div class="section-label">Venues — ' + fmtDate(currentDate) + '</div>';
+
+  DATA.venues.forEach(v=>{
+    // All bookings for this venue active on the current date
+    const vBookings = DATA.bookings.filter(b=>b.venueId===v.id && dateInBookingWindow(b, currentDate));
+    // Aggregate items + dominant phase for the date
+    let itemsHtml = '';
+    let phaseChips = '';
+    let totalTypes = 0;
+    vBookings.forEach(b=>{
+      const phase = bookingPhaseOn(b, currentDate);
+      phaseChips += phaseBadge(phase);
+      Object.entries(b.items).forEach(([iid, qty])=>{
+        const info = findItem(iid);
+        const nm = info ? info.item.name : iid;
+        totalTypes++;
+        itemsHtml += `<div class="item-row"><span>${esc(nm)}</span>
+          <span><span class="qty">${qty}</span>
+          <span class="del" onclick="removeItemFromBooking('${b.id}','${iid}')">×</span></span></div>`;
+      });
+    });
+
+    html += `<div class="venue-card">
+      <div class="venue-head">
+        <div>
+          <div class="venue-name">${esc(v.name)}</div>
+          <div class="venue-meta">${totalTypes} item type${totalTypes!==1?'s':''} · ${vBookings.length} booking${vBookings.length!==1?'s':''}</div>
+        </div>
+        <div class="venue-head-actions">
+          <span class="icon-btn edit-ic" onclick="openEditVenue('${v.id}')">✎</span>
+          <button class="add-btn" onclick="openAddAssignment('${v.id}')">+ Add</button>
+        </div>
+      </div>
+      ${phaseChips ? `<div class="booking-phases" style="padding:0 14px 8px;">${phaseChips}</div>` : ''}
+      <div class="venue-items">
+        ${itemsHtml || '<div class="empty-venue">Nothing booked here on this date.</div>'}
+      </div>
+    </div>`;
+  });
+
+  // Upcoming bookings (window starts after current date)
+  const upcoming = DATA.bookings.filter(b=>bookingWindow(b).from > currentDate)
+    .sort((a,b)=>bookingWindow(a).from.localeCompare(bookingWindow(b).from));
+  if(upcoming.length){
+    html += '<div class="section-label">Upcoming Bookings</div>';
+    upcoming.forEach(b=>{ html += bookingCard(b, null); });
+  }
+  main.innerHTML = html;
+}
+
+function removeItemFromBooking(bookingId, itemId){
+  const b = DATA.bookings.find(b=>b.id===bookingId);
+  if(!b) return;
+  delete b.items[itemId];
+  // If booking now empty, remove it entirely
+  if(Object.keys(b.items).length===0){
+    DATA.bookings = DATA.bookings.filter(x=>x.id!==bookingId);
+  }
+  saveData();
+  render();
+  toast('Removed');
+}
+
+function bookingCard(b, phase){
+  const v = DATA.venues.find(v=>v.id===b.venueId);
+  const vName = v ? v.name : '(deleted venue)';
+  const w = bookingWindow(b);
+  let phasesLine = '';
+  if(b.transitOut) phasesLine += `<span class="phase-badge phase-out">🚚 ${fmtDate(b.transitOut.from)}–${fmtDate(b.transitOut.to)}</span>`;
+  phasesLine += `<span class="phase-badge phase-event">🎪 ${fmtDate(b.event.from)}${b.event.from!==b.event.to?'–'+fmtDate(b.event.to):''}</span>`;
+  if(b.transitBack) phasesLine += `<span class="phase-badge phase-back">🚚 ${fmtDate(b.transitBack.from)}–${fmtDate(b.transitBack.to)}</span>`;
+
+  let itemsHtml = '';
+  Object.entries(b.items).forEach(([iid, qty])=>{
+    const info = findItem(iid);
+    const nm = info ? info.item.name : iid;
+    itemsHtml += `<div class="item-row"><span>${esc(nm)}</span><span class="qty">${qty}</span></div>`;
+  });
+
+  return `<div class="booking-card">
+    <div class="booking-head">
+      <div>
+        <div class="booking-venue">${esc(vName)}</div>
+        <div class="booking-window">${fmtDate(w.from)} → ${fmtDate(w.to)}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        ${phaseBadge(phase)}
+        <span class="del" style="color:var(--red);font-size:16px;" onclick="deleteBooking('${b.id}')">× Cancel</span>
+      </div>
+    </div>
+    <div class="booking-phases">${phasesLine}</div>
+    <div class="booking-items">${itemsHtml}</div>
+  </div>`;
+}
+
+function deleteBooking(id){
+  if(!confirm('Cancel this booking? Inventory will be freed for these dates.')) return;
+  DATA.bookings = DATA.bookings.filter(b=>b.id!==id);
+  saveData();
+  render();
+  toast('Booking cancelled');
+}
+
+function removeAssignment(venueId, itemId){
+  const dl = dayLog(currentDate);
+  if(dl.venues[venueId]){
+    delete dl.venues[venueId][itemId];
+    saveData();
+    render();
+    toast('Removed');
+  }
+}
+
+/* ---------------- ASSIGN SHEET (picker) ---------------- */
+function openAddAssignment(preselectVenueId){
+  if(DATA.venues.length===0){ toast('Add a venue first'); return; }
+  assignPickerQtys = {};
+  ['outFrom','outTo','backFrom','backTo'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('evFrom').value = currentDate;
+  document.getElementById('evTo').value = currentDate;
+  document.getElementById('assignConflictArea').innerHTML = '';
+  document.getElementById('pickSearch').value = '';
+
+  const sel = document.getElementById('pickerVenueSelect');
+  sel.innerHTML = DATA.venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
+  if(preselectVenueId) sel.value = preselectVenueId;
+
+  const body = document.getElementById('assignBody');
+  let html = '';
+  DATA.categories.forEach(c=>{
+    if(c.items.length===0) return;
+    html += `<div class="pick-cat" id="pc_${c.id}" onclick="togglePickCat('${c.id}')">
+      <span>${esc(c.name)}</span>
+      <span class="cnt" id="cnt_${c.id}"></span>
+      <span class="chev">▶</span>
+    </div>
+    <div class="pick-group" id="pg_${c.id}">`;
+    c.items.forEach(it=>{
+      html += `<div class="pick-row" data-item="${it.id}">
+        <div class="pick-nm">${esc(it.name)}<span class="av" id="av_${it.id}"></span></div>
+        <div class="stepper">
+          <button onclick="stepQty('${it.id}',-1)">−</button>
+          <span class="val" id="val_${it.id}">0</span>
+          <button onclick="stepQty('${it.id}',1)">+</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  body.innerHTML = html;
+  openSheet('assignSheet');
+  renderPickerItems();
+}
+
+function togglePickCat(catId){
+  document.getElementById('pc_'+catId).classList.toggle('open');
+  document.getElementById('pg_'+catId).classList.toggle('open');
+}
+
+function filterPickerItems(){
+  const q = document.getElementById('pickSearch').value.trim().toLowerCase();
+  DATA.categories.forEach(c=>{
+    const head = document.getElementById('pc_'+c.id);
+    const group = document.getElementById('pg_'+c.id);
+    if(!head || !group) return;
+    if(!q){
+      // restore default collapsed state, show all rows
+      head.style.display = '';
+      group.querySelectorAll('.pick-row').forEach(r=>r.style.display='');
+      head.classList.remove('open'); group.classList.remove('open');
+      return;
+    }
+    let anyMatch = false;
+    const catMatch = c.name.toLowerCase().includes(q);
+    group.querySelectorAll('.pick-row').forEach(r=>{
+      const itemId = r.dataset.item;
+      const info = findItem(itemId);
+      const match = catMatch || (info && info.item.name.toLowerCase().includes(q));
+      r.style.display = match ? '' : 'none';
+      if(match) anyMatch = true;
+    });
+    head.style.display = anyMatch ? '' : 'none';
+    head.classList.toggle('open', anyMatch);
+    group.classList.toggle('open', anyMatch);
+  });
+}
+
+function updateCatCounts(){
+  DATA.categories.forEach(c=>{
+    const el = document.getElementById('cnt_'+c.id);
+    if(!el) return;
+    let n = 0;
+    c.items.forEach(it=>{ n += (assignPickerQtys[it.id]||0); });
+    el.textContent = n > 0 ? n + ' picked' : '';
+  });
+}
+
+// Build the full blocked window from the phase inputs
+function getPickerDates(){
+  const outFrom = document.getElementById('outFrom').value;
+  const outTo = document.getElementById('outTo').value;
+  const evFrom = document.getElementById('evFrom').value;
+  const evTo = document.getElementById('evTo').value;
+  const backFrom = document.getElementById('backFrom').value;
+  const backTo = document.getElementById('backTo').value;
+  if(!evFrom || !evTo) return [];
+  const from = outFrom || evFrom;
+  const to = backTo || evTo;
+  return dateListBetween(from, to);
+}
+function getPickerPhases(){
+  const g = id=>document.getElementById(id).value || null;
+  return {
+    transitOut: (g('outFrom') && g('outTo')) ? {from:g('outFrom'), to:g('outTo')} : null,
+    event: {from:g('evFrom'), to:g('evTo')},
+    transitBack: (g('backFrom') && g('backTo')) ? {from:g('backFrom'), to:g('backTo')} : null,
+  };
+}
+
+function renderPickerItems(){
+  const dates = getPickerDates();
+  DATA.categories.forEach(c=>c.items.forEach(it=>{
+    const av = dates.length ? availableQtyAcrossDates(it.id, dates, null) : it.totalQty;
+    const avEl = document.getElementById('av_'+it.id);
+    if(avEl) avEl.textContent = 'Available: ' + av + ' / ' + it.totalQty + (dates.length>1 ? ' (whole window)' : '');
+    if((assignPickerQtys[it.id]||0) > av){
+      assignPickerQtys[it.id] = 0;
+      const valEl = document.getElementById('val_'+it.id);
+      if(valEl) valEl.textContent = 0;
+    }
+  }));
+}
+
+function stepQty(itemId, delta){
+  const dates = getPickerDates();
+  if(dates.length===0){ toast('Set event dates first'); return; }
+  const av = availableQtyAcrossDates(itemId, dates, null);
+  const current = assignPickerQtys[itemId] || 0;
+  let next = current + delta;
+  if(next < 0) next = 0;
+  if(delta > 0 && next > av){
+    toast('Only ' + av + ' available across window');
+    return;
+  }
+  assignPickerQtys[itemId] = next;
+  document.getElementById('val_'+itemId).textContent = next;
+  updateCatCounts();
+}
+
+function confirmAssignment(){
+  const venueId = document.getElementById('pickerVenueSelect').value;
+  const chosen = Object.entries(assignPickerQtys).filter(([k,v])=>v>0);
+  if(chosen.length===0){ toast('Pick at least one item'); return; }
+  const phases = getPickerPhases();
+  if(!phases.event.from || !phases.event.to){ toast('Set event dates'); return; }
+  if(phases.event.to < phases.event.from){ toast('Event dates invalid'); return; }
+  if(phases.transitOut && phases.transitOut.to > phases.event.from){ toast('Transit Out must end before/on event start'); }
+  const dates = getPickerDates();
+  if(dates.length===0){ toast('Invalid dates'); return; }
+
+  // Full-window conflict check — block entirely on any conflict (Option A)
+  const conflicts = [];
+  chosen.forEach(([itemId, qty])=>{
+    const info = findItem(itemId);
+    const nm = info ? info.item.name : itemId;
+    dates.forEach(d=>{
+      const av = availableQty(itemId, d, null);
+      if(qty > av) conflicts.push({date:d, name:nm, requested:qty, available:av});
+    });
+  });
+
+  if(conflicts.length > 0){
+    const area = document.getElementById('assignConflictArea');
+    let list = conflicts.slice(0,8).map(c=>
+      `<li>${esc(c.name)} — ${fmtDate(c.date)}: need ${c.requested}, only ${c.available} free</li>`
+    ).join('');
+    if(conflicts.length > 8) list += `<li>+ ${conflicts.length-8} more conflict(s)</li>`;
+    area.innerHTML = `<div class="conflict-box">Cannot book — conflicts found. Nothing was booked.
+      <ul class="conflict-list">${list}</ul></div>`;
+    toast('Blocked — conflicts found');
+    return;
+  }
+
+  const items = {};
+  chosen.forEach(([itemId, qty])=>items[itemId]=qty);
+  DATA.bookings.push({
+    id: uid('bk'),
+    venueId,
+    transitOut: phases.transitOut,
+    event: phases.event,
+    transitBack: phases.transitBack,
+    items
+  });
+  saveData();
+  closeAllSheets();
+  render();
+  toast('Booked — inventory blocked ' + fmtDate(dates[0]) + ' → ' + fmtDate(dates[dates.length-1]));
+}
+
+/* ---------------- INVENTORY TAB ---------------- */
+function renderInventory(){
+  const main = document.getElementById('mainArea');
+  let html = '<div class="section-label">Inventory Master</div>';
+  DATA.categories.forEach(c=>{
+    html += `<div class="cat-block">
+      <div class="cat-head"><span>${esc(c.name)}</span>
+        <span class="cat-add" onclick="openAddItem('${c.id}')">+ Item</span></div>`;
+    if(c.items.length===0){
+      html += '<div class="inv-item"><span class="nm" style="color:var(--sub)">No items yet</span></div>';
+    }
+    c.items.forEach(it=>{
+      const av = availableQty(it.id, currentDate, null);
+      const pct = it.totalQty>0 ? Math.max(0,Math.min(100, (av/it.totalQty)*100)) : 100;
+      const cls = av<=0 ? 'zero' : (pct<30 ? 'low' : '');
+      const rep = it.repairQty || 0;
+      html += `<div class="inv-item">
+        <span class="nm" onclick="openWhereIsIt('${it.id}')">${esc(it.name)}${rep?`<span class="repair-tag">🔧 ${rep} in repair</span>`:''}</span>
+        <span class="stat">
+          <span class="avail-bar"><span class="fill ${cls}" style="width:${pct}%"></span></span>
+          <span class="avail-text">${av}/${it.totalQty}</span>
+          <span class="edit" onclick="openEditItem('${c.id}','${it.id}')">✎</span>
+        </span>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  main.innerHTML = html;
+}
+
+function openAddCategory(){
+  document.getElementById('catNameInput').value = '';
+  openSheet('catSheet');
+}
+function saveCategory(){
+  const name = document.getElementById('catNameInput').value.trim();
+  if(!name){ toast('Enter a name'); return; }
+  DATA.categories.push({id: uid('cat'), name, items:[]});
+  saveData();
+  closeAllSheets();
+  render();
+  toast('Category added');
+}
+
+function openAddItem(catId){
+  editingItemId = null; editingItemCatId = catId;
+  document.getElementById('itemSheetTitle').textContent = 'Add Item';
+  populateCatSelect(catId);
+  document.getElementById('itemNameInput').value = '';
+  document.getElementById('itemQtyInput').value = '';
+  document.getElementById('itemRepairInput').value = '';
+  document.getElementById('deleteItemBtn').style.display = 'none';
+  openSheet('itemSheet');
+}
+function openEditItem(catId, itemId){
+  const info = findItem(itemId);
+  if(!info) return;
+  editingItemId = itemId; editingItemCatId = catId;
+  document.getElementById('itemSheetTitle').textContent = 'Edit Item';
+  populateCatSelect(catId);
+  document.getElementById('itemNameInput').value = info.item.name;
+  document.getElementById('itemQtyInput').value = info.item.totalQty;
+  document.getElementById('itemRepairInput').value = info.item.repairQty || '';
+  document.getElementById('deleteItemBtn').style.display = 'block';
+  openSheet('itemSheet');
+}
+function populateCatSelect(selectedId){
+  const sel = document.getElementById('itemCatSelect');
+  sel.innerHTML = DATA.categories.map(c=>`<option value="${c.id}" ${c.id===selectedId?'selected':''}>${esc(c.name)}</option>`).join('');
+}
+function saveItem(){
+  const name = document.getElementById('itemNameInput').value.trim();
+  const qty = parseInt(document.getElementById('itemQtyInput').value, 10);
+  const repair = parseInt(document.getElementById('itemRepairInput').value, 10) || 0;
+  const catId = document.getElementById('itemCatSelect').value;
+  if(!name){ toast('Enter item name'); return; }
+  if(isNaN(qty) || qty < 0){ toast('Enter valid quantity'); return; }
+  if(repair < 0 || repair > qty){ toast('Repair qty must be 0–' + qty); return; }
+  const cat = DATA.categories.find(c=>c.id===catId);
+  if(editingItemId){
+    const oldInfo = findItem(editingItemId);
+    if(oldInfo.cat.id !== catId){
+      oldInfo.cat.items = oldInfo.cat.items.filter(i=>i.id!==editingItemId);
+      cat.items.push({id:editingItemId, name, totalQty:qty, repairQty:repair});
+    } else {
+      oldInfo.item.name = name;
+      oldInfo.item.totalQty = qty;
+      oldInfo.item.repairQty = repair;
+    }
+  } else {
+    cat.items.push({id: uid('it'), name, totalQty:qty, repairQty:repair});
+  }
+  saveData();
+  closeAllSheets();
+  render();
+  toast('Item saved');
+}
+function deleteItem(){
+  if(!editingItemId) return;
+  const info = findItem(editingItemId);
+  if(info){
+    info.cat.items = info.cat.items.filter(i=>i.id!==editingItemId);
+    saveData();
+  }
+  closeAllSheets();
+  render();
+  toast('Item deleted');
+}
+
+/* ---------------- WHERE IS IT ---------------- */
+function openWhereIsIt(itemId){
+  const info = findItem(itemId);
+  if(!info) return;
+  const it = info.item;
+  document.getElementById('whereTitle').textContent = it.name + ' — ' + fmtDate(currentDate);
+
+  let rows = '';
+  let outTotal = 0;
+
+  // Bookings holding this item on the current date
+  DATA.bookings.forEach(b=>{
+    if(!b.items[itemId]) return;
+    if(!dateInBookingWindow(b, currentDate)) return;
+    const qty = b.items[itemId];
+    outTotal += qty;
+    const v = DATA.venues.find(v=>v.id===b.venueId);
+    const vName = v ? v.name : '(deleted venue)';
+    const phase = bookingPhaseOn(b, currentDate);
+    const phaseTxt = phase==='out' ? '🚚 In transit — going' :
+                     phase==='back' ? '🚚 In transit — returning' :
+                     phase==='event' ? '🎪 At event' : 'Scheduled';
+    rows += `<div class="where-row">
+      <div class="where-loc"><span>${esc(vName)}</span><span class="wl-sub">${phaseTxt}</span></div>
+      <span class="where-qty">${qty}</span>
+    </div>`;
+  });
+
+  // Legacy single-date assignments (v1/v2 data)
+  const dl = DATA.dlog[currentDate];
+  if(dl){
+    for(const vId in dl.venues){
+      const q = dl.venues[vId][itemId];
+      if(!q) continue;
+      outTotal += q;
+      const v = DATA.venues.find(v=>v.id===vId);
+      rows += `<div class="where-row">
+        <div class="where-loc"><span>${esc(v?v.name:'(deleted venue)')}</span><span class="wl-sub">🎪 Assigned (single day)</span></div>
+        <span class="where-qty">${q}</span>
+      </div>`;
+    }
+  }
+
+  const rep = it.repairQty || 0;
+  if(rep){
+    rows += `<div class="where-row">
+      <div class="where-loc"><span>Repair / Damaged</span><span class="wl-sub">🔧 Excluded from availability</span></div>
+      <span class="where-qty">${rep}</span>
+    </div>`;
+  }
+
+  const inGodown = it.totalQty - rep - outTotal;
+  rows += `<div class="where-row">
+    <div class="where-loc"><span>Godown</span><span class="wl-sub">🏠 In stock, available</span></div>
+    <span class="where-qty">${inGodown}</span>
+  </div>`;
+
+  rows += `<div class="where-total"><span>Total Owned</span><span>${it.totalQty}</span></div>`;
+
+  document.getElementById('whereBody').innerHTML = rows || '<div class="empty-state">No data</div>';
+  openSheet('whereSheet');
+}
+
+/* ---------------- VENUES TAB ---------------- */
+function renderVenues(){
+  const main = document.getElementById('mainArea');
+  let html = '<div class="section-label">Venues</div>';
+  if(DATA.venues.length===0){
+    html += '<div class="empty-state">No venues yet. Tap + to add one.</div>';
+  }
+  DATA.venues.forEach(v=>{
+    html += `<div class="venue-card"><div class="venue-head">
+      <div class="venue-name">${esc(v.name)}</div>
+      <div class="venue-head-actions">
+        <span class="icon-btn edit-ic" onclick="openEditVenue('${v.id}')">✎</span>
+        <span class="del" style="color:var(--red);font-size:18px;" onclick="deleteVenue('${v.id}')">×</span>
+      </div>
+    </div></div>`;
+  });
+  main.innerHTML = html;
+}
+let editingVenueId = null;
+function openAddVenue(){
+  editingVenueId = null;
+  document.getElementById('venueSheetTitle').textContent = 'Add Venue';
+  document.getElementById('venueNameInput').value = '';
+  document.getElementById('deleteVenueBtn').style.display = 'none';
+  openSheet('venueSheet');
+}
+function openEditVenue(id){
+  const v = DATA.venues.find(v=>v.id===id);
+  if(!v) return;
+  editingVenueId = id;
+  document.getElementById('venueSheetTitle').textContent = 'Edit Venue';
+  document.getElementById('venueNameInput').value = v.name;
+  document.getElementById('deleteVenueBtn').style.display = 'block';
+  openSheet('venueSheet');
+}
+function saveVenue(){
+  const name = document.getElementById('venueNameInput').value.trim();
+  if(!name){ toast('Enter venue name'); return; }
+  if(editingVenueId){
+    const v = DATA.venues.find(v=>v.id===editingVenueId);
+    if(v) v.name = name;
+    toast('Venue updated');
+  } else {
+    DATA.venues.push({id: uid('v'), name});
+    toast('Venue added');
+  }
+  saveData();
+  closeAllSheets();
+  render();
+}
+function deleteVenue(id){
+  // Note: past assignment history in dlog is kept intact for old dates.
+  // Venue is only removed from the active venue list going forward.
+  DATA.venues = DATA.venues.filter(v=>v.id!==id);
+  saveData();
+  render();
+  toast('Venue removed (history kept)');
+}
+function deleteVenueFromSheet(){
+  if(!editingVenueId) return;
+  deleteVenue(editingVenueId);
+  closeAllSheets();
+}
+
+/* ---------------- SHEET / OVERLAY CONTROLS ---------------- */
+function openSheet(id){
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById(id).classList.add('show');
+}
+function closeAllSheets(){
+  document.getElementById('overlay').classList.remove('show');
+  document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('show'));
+}
+
+/* ---------------- DATE CONTROLS ---------------- */
+function fmtDate(d){
+  const dt = new Date(d+'T00:00:00');
+  return dt.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+}
+function shiftDate(delta){
+  const dt = new Date(currentDate+'T00:00:00');
+  dt.setDate(dt.getDate()+delta);
+  currentDate = dt.toISOString().slice(0,10);
+  document.getElementById('dateInput').value = currentDate;
+  render();
+}
+document.getElementById('dateInput').addEventListener('change', e=>{
+  currentDate = e.target.value;
+  render();
+});
+
+/* ---------------- UTIL ---------------- */
+function esc(s){
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ---------------- INIT ---------------- */
+document.getElementById('dateInput').value = currentDate;
+switchTab('assign');
+</script>
+</body>
+</html>
