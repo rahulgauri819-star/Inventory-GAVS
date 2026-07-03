@@ -37,13 +37,13 @@
     box-shadow:0 0 8px var(--amber);}
   .h-title h1{font-size:16px;margin:0;letter-spacing:.3px;font-weight:700;}
   .h-title .sub{font-size:10.5px;color:var(--sub);letter-spacing:1.5px;text-transform:uppercase;}
-  .date-row{display:flex;align-items:center;gap:8px;margin-top:12px;}
+  .date-row{display:flex;align-items:center;gap:6px;margin-top:10px;}
   .date-row input[type=date]{
-    flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);
-    padding:9px 10px;border-radius:8px;font-size:14px;
+    flex:0 1 150px;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:5px 8px;border-radius:7px;font-size:12.5px;margin:0 auto;text-align:center;
   }
   .date-nav{background:var(--panel2);border:1px solid var(--line);color:var(--amber);
-    width:36px;height:36px;border-radius:8px;font-size:16px;display:flex;align-items:center;justify-content:center;}
+    width:28px;height:28px;border-radius:7px;font-size:14px;display:flex;align-items:center;justify-content:center;}
 
   .tabs{display:flex;gap:6px;margin-top:12px;}
   .tab{flex:1;text-align:center;padding:9px 4px;border-radius:8px;font-size:12.5px;font-weight:600;
@@ -55,31 +55,41 @@
     margin:18px 4px 8px;font-weight:700;}
   .section-label:first-child{margin-top:0;}
 
-  /* Venue cards */
+  /* Venue cards — 2-up grid */
+  .venue-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .venue-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-    margin-bottom:10px;overflow:hidden;}
-  .venue-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;}
-  .venue-name{font-weight:700;font-size:15px;}
-  .venue-meta{font-size:11px;color:var(--sub);margin-top:2px;}
-  .add-btn{background:var(--amber);color:#211500;border:none;border-radius:7px;
-    padding:7px 12px;font-size:12.5px;font-weight:700;}
-  .venue-items{padding:0 14px 12px;}
+    margin-bottom:0;overflow:hidden;display:flex;flex-direction:column;}
+  .venue-body{display:block;}
+  .venue-body.minimized{display:none;}
+  .venue-min-btn{color:var(--sub);font-size:13px;padding:2px 4px;line-height:1;transition:transform .15s;}
+  .venue-min-btn.minimized{transform:rotate(-90deg);}
+  .venue-head{display:flex;align-items:flex-start;justify-content:space-between;padding:10px 10px 6px;gap:6px;}
+  .venue-name{font-weight:700;font-size:13px;line-height:1.25;word-break:break-word;}
+  .venue-meta{font-size:10px;color:var(--sub);margin-top:2px;}
+  .add-btn{background:var(--amber);color:#211500;border:none;border-radius:6px;
+    padding:5px 9px;font-size:11px;font-weight:700;white-space:nowrap;}
+  .venue-items{padding:0 10px 10px;flex:1;}
   .item-row{display:flex;justify-content:space-between;align-items:center;
-    padding:7px 0;border-top:1px solid var(--line);font-size:13px;}
+    padding:5px 0;border-top:1px solid var(--line);font-size:11.5px;gap:4px;}
+  .item-row span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .item-row:first-child{border-top:none;}
   .item-row .qty{color:var(--amber);font-weight:700;font-variant-numeric:tabular-nums;}
-  .item-row .del{color:var(--red);font-size:16px;padding:0 4px;margin-left:8px;}
-  .empty-venue{color:var(--sub);font-size:12.5px;padding:4px 0 10px;}
+  .item-row .del{color:var(--red);font-size:14px;padding:0 3px;margin-left:4px;}
+  .empty-venue{color:var(--sub);font-size:11px;padding:2px 0 6px;}
 
   /* Inventory list */
   .cat-block{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-    margin-bottom:10px;}
+    margin-bottom:10px;overflow:hidden;}
   .cat-head{display:flex;justify-content:space-between;align-items:center;
-    padding:12px 14px;font-weight:700;font-size:13.5px;}
+    padding:12px 14px;font-weight:700;font-size:13.5px;cursor:pointer;user-select:none;}
+  .cat-head .cat-chev{transition:transform .18s ease;font-size:11px;color:var(--sub);margin-right:6px;}
+  .cat-head.open .cat-chev{transform:rotate(90deg);}
   .cat-head .cat-add{color:var(--blue);font-size:12px;font-weight:600;}
-  .inv-item{display:flex;justify-content:space-between;align-items:center;
-    padding:9px 14px;border-top:1px solid var(--line);}
-  .inv-item .nm{font-size:13.5px;}
+  .cat-items{display:none;}
+  .cat-items.open{display:block;}
+  .inv-item{border-top:1px solid var(--line);}
+  .inv-item-row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;}
+  .inv-item .nm{font-size:13.5px;cursor:pointer;flex:1;}
   .inv-item .stat{display:flex;align-items:center;gap:8px;}
   .avail-bar{width:56px;height:5px;background:#2a3241;border-radius:3px;overflow:hidden;}
   .avail-bar .fill{height:100%;background:var(--green);}
@@ -87,6 +97,30 @@
   .avail-bar .fill.zero{background:var(--red);}
   .avail-text{font-size:11px;color:var(--sub);min-width:50px;text-align:right;font-variant-numeric:tabular-nums;}
   .inv-item .edit{color:var(--sub);font-size:14px;padding:2px 6px;}
+
+  /* Inline where-is-it dropdown */
+  .where-inline{display:none;background:var(--panel2);border-top:1px solid var(--line);padding:8px 14px 12px;}
+  .where-inline.open{display:block;}
+  .wi-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;
+    border-top:1px solid var(--line);font-size:12.5px;}
+  .wi-row:first-child{border-top:none;}
+  .wi-left{display:flex;flex-direction:column;gap:1px;}
+  .wi-venue{font-weight:600;}
+  .wi-phase{font-size:10.5px;color:var(--sub);}
+  .wi-qty{font-weight:700;color:var(--amber);font-variant-numeric:tabular-nums;}
+  .wi-total{display:flex;justify-content:space-between;font-weight:700;font-size:12.5px;
+    margin-top:8px;padding-top:8px;border-top:2px solid var(--line);}
+
+  /* Inline delete confirm */
+  .del-confirm{display:none;background:rgba(255,107,107,0.08);border:1px solid #7a2a2a;
+    border-radius:7px;padding:8px 10px;margin:4px 14px 8px;font-size:12px;color:var(--red);}
+  .del-confirm.show{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .del-confirm span{flex:1;}
+  .del-confirm-btns{display:flex;gap:6px;}
+  .dc-yes{background:var(--red);color:#fff;border:none;border-radius:5px;
+    padding:5px 10px;font-size:11px;font-weight:700;}
+  .dc-no{background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    border-radius:5px;padding:5px 10px;font-size:11px;font-weight:700;}
 
   /* FAB */
   .fab{position:fixed;bottom:20px;right:18px;z-index:60;
@@ -137,7 +171,24 @@
 
   .repair-tag{font-size:10px;color:var(--red);font-weight:700;margin-left:6px;}
 
-  .where-row{display:flex;justify-content:space-between;align-items:center;
+  .summary-stat{display:flex;justify-content:space-between;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 14px;margin-bottom:8px;}
+  .summary-stat .ss-left{display:flex;flex-direction:column;gap:2px;}
+  .summary-stat .ss-name{font-weight:700;font-size:14px;}
+  .summary-stat .ss-venues{font-size:11px;color:var(--sub);}
+  .summary-stat .ss-qty{font-size:22px;font-weight:700;color:var(--amber);font-variant-numeric:tabular-nums;}
+  .summary-header{background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+  .summary-header .sh-num{font-size:28px;font-weight:700;color:var(--amber);}
+  .summary-header .sh-label{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;}
+  .edit-item-row{display:flex;justify-content:space-between;align-items:center;
+    padding:9px 0;border-top:1px solid var(--line);font-size:13px;}
+  .edit-item-row:first-child{border-top:none;}
+  .edit-item-row .stepper{display:flex;align-items:center;gap:8px;}
+  .edit-item-row .stepper button{width:26px;height:26px;border-radius:5px;background:var(--panel2);
+    border:1px solid var(--line);color:var(--text);font-size:14px;}
+  .edit-item-row .val{min-width:20px;text-align:center;font-weight:700;}
     padding:10px 0;border-top:1px solid var(--line);font-size:13.5px;}
   .where-row:first-child{border-top:none;}
   .where-loc{display:flex;flex-direction:column;gap:2px;}
@@ -230,6 +281,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="assign" onclick="switchTab('assign')">Assign</div>
     <div class="tab" data-tab="inventory" onclick="switchTab('inventory')">Inventory</div>
+    <div class="tab" data-tab="summary" onclick="switchTab('summary')">Summary</div>
     <div class="tab" data-tab="venues" onclick="switchTab('venues')">Venues</div>
   </div>
 </header>
@@ -296,7 +348,14 @@
   </div>
   <div class="sheet-foot">
     <button class="btn btn-primary" onclick="saveItem()">Save Item</button>
-    <button class="btn btn-danger" id="deleteItemBtn" style="display:none;margin-top:8px;" onclick="deleteItem()">Delete Item</button>
+    <button class="btn btn-danger" id="deleteItemBtn" style="display:none;margin-top:8px;" onclick="showItemSheetDel()">Delete Item</button>
+    <div class="del-confirm" id="dc_itemsheet" style="margin:8px 0 0;">
+      <span>Delete this item?</span>
+      <div class="del-confirm-btns">
+        <button class="dc-yes" onclick="deleteItem(editingItemId)">Delete</button>
+        <button class="dc-no" onclick="hideDel('dc_itemsheet')">Cancel</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -305,6 +364,42 @@
   <div class="sheet-handle"></div>
   <div class="sheet-head"><h3 id="whereTitle">Where is it?</h3><span class="close" onclick="closeAllSheets()">×</span></div>
   <div class="sheet-body" id="whereBody"></div>
+</div>
+
+<!-- Edit Booking sheet -->
+<div class="sheet" id="editBookingSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3>Edit Booking</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div class="field"><label>Venue</label><select id="editVenueSelect"></select></div>
+    <div class="phase-range-block prb-out">
+      <div class="prb-title"><span>🚚</span> Transit Out (optional)</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="editOutFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="editOutTo"></div>
+      </div>
+    </div>
+    <div class="phase-range-block prb-event">
+      <div class="prb-title"><span>🎪</span> Event Days</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="editEvFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="editEvTo"></div>
+      </div>
+    </div>
+    <div class="phase-range-block prb-back">
+      <div class="prb-title"><span>🚚</span> Transit Back (optional)</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="editBackFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="editBackTo"></div>
+      </div>
+    </div>
+    <div id="editConflictArea"></div>
+    <div class="section-label" style="margin-top:14px;">Items</div>
+    <div id="editItemsBody"></div>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn btn-primary" onclick="saveBookingEdit()">Save Changes</button>
+  </div>
 </div>
 
 <!-- Add category sheet -->
@@ -330,7 +425,14 @@
   </div>
   <div class="sheet-foot">
     <button class="btn btn-primary" onclick="saveVenue()">Save Venue</button>
-    <button class="btn btn-danger" id="deleteVenueBtn" style="display:none;margin-top:8px;" onclick="deleteVenueFromSheet()">Delete Venue</button>
+    <button class="btn btn-danger" id="deleteVenueBtn" style="display:none;margin-top:8px;" onclick="showDel('dc_venuesheet')">Delete Venue</button>
+    <div class="del-confirm" id="dc_venuesheet" style="margin:8px 0 0;">
+      <span>Delete this venue? History kept.</span>
+      <div class="del-confirm-btns">
+        <button class="dc-yes" onclick="deleteVenueFromSheet()">Delete</button>
+        <button class="dc-no" onclick="hideDel('dc_venuesheet')">Cancel</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -525,15 +627,18 @@ function availableQty(itemId, date, excludeVenueId){
 function switchTab(tab){
   currentTab = tab;
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
-  document.getElementById('fabBtn').style.display = (tab==='assign') ? 'flex' : 'flex';
-  document.getElementById('fabBtn').onclick = tab==='assign' ? openAddAssignment
-    : tab==='inventory' ? openAddCategory : openAddVenue;
+  const fab = document.getElementById('fabBtn');
+  if(tab==='assign'){ fab.style.display='flex'; fab.onclick=openAddAssignment; }
+  else if(tab==='inventory'){ fab.style.display='flex'; fab.onclick=openAddCategory; }
+  else if(tab==='venues'){ fab.style.display='flex'; fab.onclick=openAddVenue; }
+  else { fab.style.display='none'; }
   render();
 }
 
 function render(){
   if(currentTab==='assign') renderAssign();
   else if(currentTab==='inventory') renderInventory();
+  else if(currentTab==='summary') renderSummary();
   else renderVenues();
 }
 
@@ -548,6 +653,7 @@ function renderAssign(){
   }
 
   html += '<div class="section-label">Venues — ' + fmtDate(currentDate) + '</div>';
+  html += '<div class="venue-grid">';
 
   DATA.venues.forEach(v=>{
     // All bookings for this venue active on the current date
@@ -560,32 +666,45 @@ function renderAssign(){
       const phase = bookingPhaseOn(b, currentDate);
       phaseChips += phaseBadge(phase);
       Object.entries(b.items).forEach(([iid, qty])=>{
+      const dcId = `dc_rm_${b.id}_${iid}`;
         const info = findItem(iid);
         const nm = info ? info.item.name : iid;
         totalTypes++;
         itemsHtml += `<div class="item-row"><span>${esc(nm)}</span>
           <span><span class="qty">${qty}</span>
-          <span class="del" onclick="removeItemFromBooking('${b.id}','${iid}')">×</span></span></div>`;
+          <span class="del" onclick="showDel('${dcId}')">×</span></span></div>
+          <div class="del-confirm" id="${dcId}" style="margin:2px 0 4px;">
+            <span>Remove ${esc(nm)}?</span>
+            <div class="del-confirm-btns">
+              <button class="dc-yes" onclick="removeItemFromBooking('${b.id}','${iid}')">Remove</button>
+              <button class="dc-no" onclick="hideDel('${dcId}')">Keep</button>
+            </div>
+          </div>`;
       });
     });
 
+    const isMin = (VENUE_MIN_STATE[v.id] === true);
     html += `<div class="venue-card">
-      <div class="venue-head">
-        <div>
+      <div class="venue-head" onclick="toggleVenueMin('${v.id}')" style="cursor:pointer;">
+        <div style="flex:1;min-width:0;">
           <div class="venue-name">${esc(v.name)}</div>
           <div class="venue-meta">${totalTypes} item type${totalTypes!==1?'s':''} · ${vBookings.length} booking${vBookings.length!==1?'s':''}</div>
         </div>
-        <div class="venue-head-actions">
+        <div class="venue-head-actions" onclick="event.stopPropagation()">
+          <span class="venue-min-btn${isMin?' minimized':''}" onclick="toggleVenueMin('${v.id}')">▾</span>
           <span class="icon-btn edit-ic" onclick="openEditVenue('${v.id}')">✎</span>
           <button class="add-btn" onclick="openAddAssignment('${v.id}')">+ Add</button>
         </div>
       </div>
-      ${phaseChips ? `<div class="booking-phases" style="padding:0 14px 8px;">${phaseChips}</div>` : ''}
-      <div class="venue-items">
-        ${itemsHtml || '<div class="empty-venue">Nothing booked here on this date.</div>'}
+      <div class="venue-body${isMin?' minimized':''}">
+        ${phaseChips ? `<div class="booking-phases" style="padding:0 10px 6px;">${phaseChips}</div>` : ''}
+        <div class="venue-items">
+          ${itemsHtml || '<div class="empty-venue">Nothing booked on this date.</div>'}
+        </div>
       </div>
     </div>`;
   });
+  html += '</div>';
 
   // Upcoming bookings (window starts after current date)
   const upcoming = DATA.bookings.filter(b=>bookingWindow(b).from > currentDate)
@@ -612,7 +731,8 @@ function removeItemFromBooking(bookingId, itemId){
 
 function bookingCard(b, phase){
   const v = DATA.venues.find(v=>v.id===b.venueId);
-  const vName = v ? v.name : '(deleted venue)';
+  if(!v) return ''; // skip orphaned bookings silently
+  const vName = v.name;
   const w = bookingWindow(b);
   let phasesLine = '';
   if(b.transitOut) phasesLine += `<span class="phase-badge phase-out">🚚 ${fmtDate(b.transitOut.from)}–${fmtDate(b.transitOut.to)}</span>`;
@@ -626,7 +746,7 @@ function bookingCard(b, phase){
     itemsHtml += `<div class="item-row"><span>${esc(nm)}</span><span class="qty">${qty}</span></div>`;
   });
 
-  return `<div class="booking-card">
+  return `<div class="booking-card" id="bcard_${b.id}">
     <div class="booking-head">
       <div>
         <div class="booking-venue">${esc(vName)}</div>
@@ -634,16 +754,30 @@ function bookingCard(b, phase){
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
         ${phaseBadge(phase)}
-        <span class="del" style="color:var(--red);font-size:16px;" onclick="deleteBooking('${b.id}')">× Cancel</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="color:var(--blue);font-size:13px;cursor:pointer;" onclick="openEditBooking('${b.id}')">✎ Edit</span>
+          <span class="del" style="color:var(--red);font-size:13px;cursor:pointer;" onclick="confirmCancelBooking('${b.id}')">× Cancel</span>
+        </div>
       </div>
     </div>
     <div class="booking-phases">${phasesLine}</div>
     <div class="booking-items">${itemsHtml}</div>
+    <div class="cancel-confirm" id="cc_${b.id}" style="display:none;background:var(--amber-dim);border:1px solid #6a5228;border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12.5px;color:var(--amber);">
+      Cancel this booking and free all inventory?
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button onclick="deleteBooking('${b.id}')" style="flex:1;padding:7px;background:var(--red);color:#fff;border:none;border-radius:6px;font-weight:700;font-size:12px;">Yes, Cancel</button>
+        <button onclick="document.getElementById('cc_${b.id}').style.display='none'" style="flex:1;padding:7px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;font-weight:700;font-size:12px;">Keep</button>
+      </div>
+    </div>
   </div>`;
 }
 
+function confirmCancelBooking(id){
+  const el = document.getElementById('cc_'+id);
+  if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
 function deleteBooking(id){
-  if(!confirm('Cancel this booking? Inventory will be freed for these dates.')) return;
   DATA.bookings = DATA.bookings.filter(b=>b.id!==id);
   saveData();
   render();
@@ -851,29 +985,99 @@ function renderInventory(){
   const main = document.getElementById('mainArea');
   let html = '<div class="section-label">Inventory Master</div>';
   DATA.categories.forEach(c=>{
+    const outCount = c.items.filter(it=>availableQty(it.id,currentDate,null)<it.totalQty).length;
     html += `<div class="cat-block">
-      <div class="cat-head"><span>${esc(c.name)}</span>
-        <span class="cat-add" onclick="openAddItem('${c.id}')">+ Item</span></div>`;
+      <div class="cat-head" id="cath_${c.id}" onclick="toggleInvCat('${c.id}')">
+        <span><span class="cat-chev">▶</span>${esc(c.name)}</span>
+        <span style="display:flex;align-items:center;gap:12px;">
+          ${outCount?`<span style="font-size:10px;color:var(--amber);font-weight:600;">${outCount} out</span>`:''}
+          <span class="cat-add" onclick="event.stopPropagation();openAddItem('${c.id}')">+ Item</span>
+        </span>
+      </div>
+      <div class="cat-items" id="cati_${c.id}">`;
     if(c.items.length===0){
-      html += '<div class="inv-item"><span class="nm" style="color:var(--sub)">No items yet</span></div>';
+      html += `<div class="inv-item"><div class="inv-item-row" style="color:var(--sub);font-size:12.5px;">No items yet</div></div>`;
     }
     c.items.forEach(it=>{
       const av = availableQty(it.id, currentDate, null);
-      const pct = it.totalQty>0 ? Math.max(0,Math.min(100, (av/it.totalQty)*100)) : 100;
-      const cls = av<=0 ? 'zero' : (pct<30 ? 'low' : '');
-      const rep = it.repairQty || 0;
-      html += `<div class="inv-item">
-        <span class="nm" onclick="openWhereIsIt('${it.id}')">${esc(it.name)}${rep?`<span class="repair-tag">🔧 ${rep} in repair</span>`:''}</span>
-        <span class="stat">
-          <span class="avail-bar"><span class="fill ${cls}" style="width:${pct}%"></span></span>
-          <span class="avail-text">${av}/${it.totalQty}</span>
-          <span class="edit" onclick="openEditItem('${c.id}','${it.id}')">✎</span>
-        </span>
+      const pct = it.totalQty>0 ? Math.max(0,Math.min(100,(av/it.totalQty)*100)) : 100;
+      const cls = av<=0?'zero':(pct<30?'low':'');
+      const rep = it.repairQty||0;
+      html += `<div class="inv-item" id="invit_${it.id}">
+        <div class="inv-item-row">
+          <span class="nm" onclick="toggleWhereInline('${it.id}')">${esc(it.name)}${rep?`<span class="repair-tag">🔧${rep}</span>`:''}</span>
+          <span class="stat">
+            <span class="avail-bar"><span class="fill ${cls}" style="width:${pct}%"></span></span>
+            <span class="avail-text">${av}/${it.totalQty}</span>
+            <span class="edit" onclick="openEditItem('${c.id}','${it.id}')">✎</span>
+          </span>
+        </div>
+        <div class="where-inline" id="wi_${it.id}"></div>
+        <div class="del-confirm" id="dc_inv_${it.id}">
+          <span>Delete ${esc(it.name)}?</span>
+          <div class="del-confirm-btns">
+            <button class="dc-yes" onclick="deleteItem('${it.id}')">Delete</button>
+            <button class="dc-no" onclick="hideDel('dc_inv_${it.id}')">Cancel</button>
+          </div>
+        </div>
       </div>`;
     });
-    html += '</div>';
+    html += `</div></div>`;
   });
   main.innerHTML = html;
+}
+
+function toggleInvCat(catId){
+  document.getElementById('cath_'+catId).classList.toggle('open');
+  document.getElementById('cati_'+catId).classList.toggle('open');
+}
+
+function toggleWhereInline(itemId){
+  const el = document.getElementById('wi_'+itemId);
+  if(!el) return;
+  if(el.classList.contains('open')){ el.classList.remove('open'); return; }
+  // Build content
+  const info = findItem(itemId);
+  if(!info) return;
+  const it = info.item;
+  let rows = '';
+  let outTotal = 0;
+
+  DATA.bookings.forEach(b=>{
+    if(!b.items[itemId]) return;
+    if(!dateInBookingWindow(b, currentDate)) return;
+    const qty = b.items[itemId];
+    outTotal += qty;
+    const v = DATA.venues.find(v=>v.id===b.venueId);
+    const vName = v ? v.name : '(deleted)';
+    const phase = bookingPhaseOn(b, currentDate);
+    const phaseTxt = phase==='out'?'🚚 In transit — going':phase==='back'?'🚚 In transit — returning':phase==='event'?'🎪 At event':'Scheduled';
+    rows += `<div class="wi-row">
+      <div class="wi-left"><span class="wi-venue">${esc(vName)}</span><span class="wi-phase">${phaseTxt}</span></div>
+      <span class="wi-qty">${qty}</span>
+    </div>`;
+  });
+
+  // Legacy dlog
+  const dl = DATA.dlog[currentDate];
+  if(dl){ for(const vId in dl.venues){
+    const q = dl.venues[vId][itemId]; if(!q) continue;
+    outTotal += q;
+    const v = DATA.venues.find(v=>v.id===vId);
+    rows += `<div class="wi-row">
+      <div class="wi-left"><span class="wi-venue">${esc(v?v.name:'(deleted)')}</span><span class="wi-phase">🎪 Assigned</span></div>
+      <span class="wi-qty">${q}</span>
+    </div>`;
+  }}
+
+  const rep = it.repairQty||0;
+  if(rep) rows += `<div class="wi-row"><div class="wi-left"><span class="wi-venue">Repair / Damaged</span><span class="wi-phase">🔧 Out of service</span></div><span class="wi-qty">${rep}</span></div>`;
+  const inStock = it.totalQty - rep - outTotal;
+  rows += `<div class="wi-row"><div class="wi-left"><span class="wi-venue">Godown</span><span class="wi-phase">🏠 In stock</span></div><span class="wi-qty">${inStock}</span></div>`;
+  rows += `<div class="wi-total"><span>Total Owned</span><span>${it.totalQty}</span></div>`;
+
+  el.innerHTML = rows || '<div style="color:var(--sub);font-size:12px;">No data</div>';
+  el.classList.add('open');
 }
 
 function openAddCategory(){
@@ -943,13 +1147,11 @@ function saveItem(){
   render();
   toast('Item saved');
 }
-function deleteItem(){
-  if(!editingItemId) return;
-  const info = findItem(editingItemId);
-  if(info){
-    info.cat.items = info.cat.items.filter(i=>i.id!==editingItemId);
-    saveData();
-  }
+function showItemSheetDel(){ showDel('dc_itemsheet'); }
+
+function deleteItem(itemId){
+  const info = findItem(itemId);
+  if(info){ info.cat.items = info.cat.items.filter(i=>i.id!==itemId); saveData(); }
   closeAllSheets();
   render();
   toast('Item deleted');
@@ -1025,18 +1227,35 @@ function renderVenues(){
   if(DATA.venues.length===0){
     html += '<div class="empty-state">No venues yet. Tap + to add one.</div>';
   }
+  html += '<div class="venue-grid">';
   DATA.venues.forEach(v=>{
-    html += `<div class="venue-card"><div class="venue-head">
-      <div class="venue-name">${esc(v.name)}</div>
-      <div class="venue-head-actions">
-        <span class="icon-btn edit-ic" onclick="openEditVenue('${v.id}')">✎</span>
-        <span class="del" style="color:var(--red);font-size:18px;" onclick="deleteVenue('${v.id}')">×</span>
+    html += `<div class="venue-card">
+      <div class="venue-head">
+        <div class="venue-name">${esc(v.name)}</div>
+        <div class="venue-head-actions">
+          <span class="icon-btn edit-ic" onclick="openEditVenue('${v.id}')">✎</span>
+          <span class="del" style="color:var(--red);font-size:16px;" onclick="showDel('dc_vtab_${v.id}')">×</span>
+        </div>
       </div>
-    </div></div>`;
+      <div class="del-confirm" id="dc_vtab_${v.id}" style="margin:0 10px 10px;">
+        <span>Delete ${esc(v.name)}?</span>
+        <div class="del-confirm-btns">
+          <button class="dc-yes" onclick="deleteVenue('${v.id}')">Delete</button>
+          <button class="dc-no" onclick="hideDel('dc_vtab_${v.id}')">Cancel</button>
+        </div>
+      </div>
+    </div>`;
   });
+  html += '</div>';
   main.innerHTML = html;
 }
 let editingVenueId = null;
+const VENUE_MIN_STATE = {}; // venueId -> true(minimized)
+
+function toggleVenueMin(venueId){
+  VENUE_MIN_STATE[venueId] = !VENUE_MIN_STATE[venueId];
+  render();
+}
 function openAddVenue(){
   editingVenueId = null;
   document.getElementById('venueSheetTitle').textContent = 'Add Venue';
@@ -1098,9 +1317,13 @@ function fmtDate(d){
   return dt.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
 }
 function shiftDate(delta){
-  const dt = new Date(currentDate+'T00:00:00');
+  const parts = currentDate.split('-');
+  const dt = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
   dt.setDate(dt.getDate()+delta);
-  currentDate = dt.toISOString().slice(0,10);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth()+1).padStart(2,'0');
+  const d = String(dt.getDate()).padStart(2,'0');
+  currentDate = `${y}-${m}-${d}`;
   document.getElementById('dateInput').value = currentDate;
   render();
 }
@@ -1112,6 +1335,208 @@ document.getElementById('dateInput').addEventListener('change', e=>{
 /* ---------------- UTIL ---------------- */
 function esc(s){
   return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ---------------- SUMMARY TAB ---------------- */
+function renderSummary(){
+  const main = document.getElementById('mainArea');
+  // Collect all items going out today across all venues
+  const itemTotals = {}; // itemId -> {qty, venues:[names]}
+  DATA.bookings.forEach(b=>{
+    if(!dateInBookingWindow(b, currentDate)) return;
+    const v = DATA.venues.find(v=>v.id===b.venueId);
+    const vName = v ? v.name : '(deleted)';
+    Object.entries(b.items).forEach(([iid, qty])=>{
+      if(!itemTotals[iid]) itemTotals[iid] = {qty:0, venues:[]};
+      itemTotals[iid].qty += qty;
+      if(!itemTotals[iid].venues.includes(vName)) itemTotals[iid].venues.push(vName);
+    });
+  });
+  // Legacy dlog
+  const dl = DATA.dlog[currentDate];
+  if(dl){ for(const vId in dl.venues){
+    const v = DATA.venues.find(v=>v.id===vId);
+    const vName = v ? v.name : '(deleted)';
+    for(const iid in dl.venues[vId]){
+      const qty = dl.venues[vId][iid]; if(!qty) continue;
+      if(!itemTotals[iid]) itemTotals[iid] = {qty:0, venues:[]};
+      itemTotals[iid].qty += qty;
+      if(!itemTotals[iid].venues.includes(vName)) itemTotals[iid].venues.push(vName);
+    }
+  }}
+
+  const totalTypes = Object.keys(itemTotals).length;
+  const activeVenues = [...new Set(Object.values(itemTotals).flatMap(x=>x.venues))].length;
+
+  let html = `<div class="section-label">Day Load Summary — ${fmtDate(currentDate)}</div>
+    <div class="summary-header">
+      <div><div class="sh-num">${totalTypes}</div><div class="sh-label">Item types out</div></div>
+      <div style="text-align:right"><div class="sh-num">${activeVenues}</div><div class="sh-label">Venues active</div></div>
+    </div>`;
+
+  if(totalTypes===0){
+    html += '<div class="empty-state">🏠 Everything in the godown today.</div>';
+    main.innerHTML = html; return;
+  }
+
+  // Group by category
+  DATA.categories.forEach(c=>{
+    const catItems = c.items.filter(it=>itemTotals[it.id]);
+    if(!catItems.length) return;
+    html += `<div class="section-label">${esc(c.name)}</div>`;
+    catItems.forEach(it=>{
+      const d = itemTotals[it.id];
+      html += `<div class="summary-stat">
+        <div class="ss-left">
+          <span class="ss-name">${esc(it.name)}</span>
+          <span class="ss-venues">${d.venues.map(esc).join(' · ')}</span>
+        </div>
+        <span class="ss-qty">${d.qty}</span>
+      </div>`;
+    });
+  });
+  main.innerHTML = html;
+}
+
+/* ---------------- BOOKING EDIT ---------------- */
+let editingBookingId = null;
+let editBookingQtys = {};
+
+function openEditBooking(bookingId){
+  const b = DATA.bookings.find(b=>b.id===bookingId);
+  if(!b) return;
+  editingBookingId = bookingId;
+  editBookingQtys = {...b.items}; // clone
+
+  // Populate venue select
+  const sel = document.getElementById('editVenueSelect');
+  sel.innerHTML = DATA.venues.map(v=>`<option value="${v.id}"${v.id===b.venueId?' selected':''}>${esc(v.name)}</option>`).join('');
+
+  // Populate dates
+  const g = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=val||''; };
+  g('editOutFrom', b.transitOut&&b.transitOut.from);
+  g('editOutTo', b.transitOut&&b.transitOut.to);
+  g('editEvFrom', b.event.from);
+  g('editEvTo', b.event.to);
+  g('editBackFrom', b.transitBack&&b.transitBack.from);
+  g('editBackTo', b.transitBack&&b.transitBack.to);
+
+  document.getElementById('editConflictArea').innerHTML = '';
+  renderEditItems();
+  openSheet('editBookingSheet');
+}
+
+function renderEditItems(){
+  const body = document.getElementById('editItemsBody');
+  let html = '';
+  DATA.categories.forEach(c=>{
+    const catItems = c.items.filter(it=> editBookingQtys[it.id] > 0);
+    if(!catItems.length) return;
+    html += `<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--amber);font-weight:700;margin:12px 0 4px;">${esc(c.name)}</div>`;
+    catItems.forEach(it=>{
+      html += `<div class="edit-item-row">
+        <span>${esc(it.name)}</span>
+        <div class="stepper">
+          <button onclick="stepEditQty('${it.id}',-1)">−</button>
+          <span class="val" id="eqval_${it.id}">${editBookingQtys[it.id]||0}</span>
+          <button onclick="stepEditQty('${it.id}',1)">+</button>
+        </div>
+      </div>`;
+    });
+  });
+  // Also show items not yet in booking as add-able
+  html += `<div style="font-size:11px;color:var(--sub);margin:14px 0 6px;">+ Add more items</div>`;
+  DATA.categories.forEach(c=>{
+    c.items.forEach(it=>{
+      if(editBookingQtys[it.id]) return; // already shown
+      html += `<div class="edit-item-row">
+        <span style="color:var(--sub);">${esc(it.name)}</span>
+        <div class="stepper">
+          <button onclick="stepEditQty('${it.id}',-1)">−</button>
+          <span class="val" id="eqval_${it.id}">0</span>
+          <button onclick="stepEditQty('${it.id}',1)">+</button>
+        </div>
+      </div>`;
+    });
+  });
+  body.innerHTML = html;
+}
+
+function stepEditQty(itemId, delta){
+  const current = editBookingQtys[itemId] || 0;
+  const next = Math.max(0, current + delta);
+  editBookingQtys[itemId] = next;
+  const el = document.getElementById('eqval_'+itemId);
+  if(el) el.textContent = next;
+}
+
+function saveBookingEdit(){
+  const b = DATA.bookings.find(b=>b.id===editingBookingId);
+  if(!b) return;
+
+  const venueId = document.getElementById('editVenueSelect').value;
+  const g = id=>document.getElementById(id).value||null;
+  const transitOut = (g('editOutFrom')&&g('editOutTo')) ? {from:g('editOutFrom'),to:g('editOutTo')} : null;
+  const event = {from:g('editEvFrom'), to:g('editEvTo')};
+  const transitBack = (g('editBackFrom')&&g('editBackTo')) ? {from:g('editBackFrom'),to:g('editBackTo')} : null;
+
+  if(!event.from||!event.to){ toast('Set event dates'); return; }
+
+  const newItems = {};
+  Object.entries(editBookingQtys).forEach(([id,qty])=>{ if(qty>0) newItems[id]=qty; });
+  if(!Object.keys(newItems).length){ toast('Add at least one item'); return; }
+
+  // Build full window
+  const from = (transitOut&&transitOut.from)||event.from;
+  const to = (transitBack&&transitBack.to)||event.to;
+  const dates = dateListBetween(from, to);
+
+  // Conflict check — exclude this booking itself
+  const conflicts = [];
+  Object.entries(newItems).forEach(([itemId,qty])=>{
+    const info = findItem(itemId);
+    const nm = info ? info.item.name : itemId;
+    dates.forEach(d=>{
+      // available excluding this booking's own current hold
+      const othersUsing = assignedQtyForItemExcludingBooking(itemId, d, editingBookingId);
+      const info2 = findItem(itemId);
+      const rep = info2 ? (info2.item.repairQty||0) : 0;
+      const total = info2 ? info2.item.totalQty : 0;
+      const av = total - rep - othersUsing;
+      if(qty > av) conflicts.push({date:d, name:nm, requested:qty, available:av});
+    });
+  });
+
+  if(conflicts.length){
+    const area = document.getElementById('editConflictArea');
+    let list = conflicts.slice(0,6).map(c=>`<li>${esc(c.name)} — ${fmtDate(c.date)}: need ${c.requested}, only ${c.available} free</li>`).join('');
+    area.innerHTML = `<div class="conflict-box">Conflicts found — not saved.<ul class="conflict-list">${list}</ul></div>`;
+    toast('Conflicts — not saved');
+    return;
+  }
+
+  // Apply edits
+  b.venueId = venueId;
+  b.transitOut = transitOut;
+  b.event = event;
+  b.transitBack = transitBack;
+  b.items = newItems;
+  saveData();
+  closeAllSheets();
+  render();
+  toast('Booking updated');
+}
+
+// Like assignedQtyForItem but excludes a specific booking id
+function assignedQtyForItemExcludingBooking(itemId, date, excludeBookingId){
+  let total = 0;
+  const dl = DATA.dlog[date];
+  if(dl){ for(const vId in dl.venues){ const q=dl.venues[vId][itemId]; if(q) total+=q; } }
+  DATA.bookings.forEach(b=>{
+    if(b.id===excludeBookingId) return;
+    if(dateInBookingWindow(b,date) && b.items[itemId]) total+=b.items[itemId];
+  });
+  return total;
 }
 
 /* ---------------- INIT ---------------- */
