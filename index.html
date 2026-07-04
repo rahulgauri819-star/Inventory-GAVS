@@ -1242,10 +1242,14 @@ function renderPickerItems(){
     }
     const avEl = document.getElementById('av_'+it.id);
     if(avEl) avEl.textContent = 'Available: ' + av + ' / ' + it.totalQty + (dates.length>1?' (whole window)':'');
-    if((assignPickerQtys[it.id]||0) > av){
-      assignPickerQtys[it.id] = av;
+    // Only cap if the chosen qty exceeds availability AND it's a new addition (not pre-filled from existing booking)
+    const existingBk = DATA.bookings.find(b=>b.venueId===venueId && dates.some(d=>dateInBookingWindow(b,d)));
+    const ownQty = (existingBk && existingBk.items[it.id]) ? existingBk.items[it.id] : 0;
+    const maxAllowed = av + ownQty; // can keep own qty plus whatever else is free
+    if((assignPickerQtys[it.id]||0) > maxAllowed){
+      assignPickerQtys[it.id] = maxAllowed;
       const valEl = document.getElementById('val_'+it.id);
-      if(valEl) valEl.textContent = av;
+      if(valEl) valEl.textContent = maxAllowed;
     }
   }));
   updateCatCounts();
@@ -1577,6 +1581,18 @@ function confirmCopyBooking(){
     let list = conflicts.slice(0,6).map(c=>`<li>${esc(c.name)} — ${fmtDate(c.date)}: need ${c.requested}, only ${c.available} free</li>`).join('');
     area.innerHTML=`<div class="conflict-box">Conflicts found — not copied.<ul class="conflict-list">${list}</ul></div>`;
     toast('Conflicts — not copied'); return;
+  }
+
+  // One booking per venue — merge into existing if target has a booking
+  const existingAtTarget = DATA.bookings.find(bk=>
+    bk.venueId===copySourceVenueId && bk.id!==b.id && dates.some(d=>dateInBookingWindow(bk,d))
+  );
+  if(existingAtTarget){
+    Object.entries(b.items).forEach(([iid,qty])=>{ existingAtTarget.items[iid]=qty; });
+    if(clientName) existingAtTarget.clientName = clientName;
+    saveData(); closeAllSheets(); render();
+    toast('Merged into existing booking ✓');
+    return;
   }
 
   DATA.bookings.push({
