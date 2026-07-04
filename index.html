@@ -1709,11 +1709,6 @@ function cleanupDuplicateBookings(){
 function renderVenues(){
   const main = document.getElementById('mainArea');
   let html = '<div class="section-label">Venues</div>';
-  html += `<div style="margin-bottom:10px;">
-    <button onclick="cleanupDuplicateBookings()" style="width:100%;padding:10px;background:#fff3e8;border:1px solid var(--amber);color:var(--amber);border-radius:8px;font-weight:700;font-size:13px;">
-      🔧 Merge Duplicate Bookings (one-time cleanup)
-    </button>
-  </div>`;
   if(DATA.venues.length===0){
     html += '<div class="empty-state">No venues yet. Tap + to add one.</div>';
   }
