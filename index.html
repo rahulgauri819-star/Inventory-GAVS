@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GAVS Inventory</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --bg:#0d1117;
@@ -206,6 +208,23 @@
     border:1px solid var(--line);color:var(--text);font-size:16px;line-height:1;}
   .stepper .val{min-width:22px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;}
 
+  /* Login screen */
+  #loginScreen{position:fixed;inset:0;background:var(--bg);z-index:999;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;}
+  .login-box{width:100%;max-width:340px;}
+  .login-logo{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:32px;}
+  .login-logo .dot{width:12px;height:12px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber);}
+  .login-logo h2{margin:0;font-size:22px;font-weight:700;}
+  .login-logo .sub{font-size:11px;color:var(--sub);letter-spacing:1.5px;text-transform:uppercase;}
+  .login-field{margin-bottom:14px;}
+  .login-field label{display:block;font-size:11px;color:var(--sub);margin-bottom:5px;text-transform:uppercase;letter-spacing:.8px;}
+  .login-field input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:12px 14px;border-radius:9px;font-size:15px;}
+  .login-btn{width:100%;padding:14px;background:var(--amber);color:#211500;border:none;
+    border-radius:9px;font-weight:700;font-size:15px;margin-top:6px;}
+  .login-err{color:var(--red);font-size:12.5px;text-align:center;margin-top:10px;min-height:18px;}
+  .save-ind{position:fixed;top:6px;right:10px;font-size:10px;color:var(--sub);z-index:200;pointer-events:none;}
+
   .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
     background:#1c2330;border:1px solid var(--line);color:var(--text);
     padding:9px 16px;border-radius:20px;font-size:12.5px;z-index:200;opacity:0;
@@ -262,6 +281,24 @@
 </style>
 </head>
 <body>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="dot"></div>
+      <h2>GAVS Inventory</h2>
+      <div class="sub">Grover Audio Visual Services</div>
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="save-ind" id="saveInd"></div>
 
 <header>
   <div class="h-top">
@@ -439,8 +476,46 @@
 <div class="toast" id="toast"></div>
 
 <script>
-/* ---------------- DATA LAYER (localStorage, Firebase-shaped for easy migration) ---------------- */
+/* ============================================================
+   FIREBASE CONFIG
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyD21b54wn5nGwLt0etNy6xeY5N2S8zvRPs",
+  authDomain: "gavs-inventory.firebaseapp.com",
+  projectId: "gavs-inventory",
+  storageBucket: "gavs-inventory.firebasestorage.app",
+  messagingSenderId: "1008325668730",
+  appId: "1:1008325668730:web:c04f202be6c9845e9270c3"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const DOC_REF = db.collection('gavs_inventory').doc('main');
+
+/* ============================================================
+   LOGIN
+   ============================================================ */
+const APP_PASS = 'gavs2025';
+const SESSION_KEY = 'gavs_inv_session';
+
+function doLogin(){
+  const val = document.getElementById('loginPass').value;
+  if(val === APP_PASS){
+    localStorage.setItem(SESSION_KEY, '1');
+    document.getElementById('loginScreen').style.display = 'none';
+    initApp();
+  } else {
+    document.getElementById('loginErr').textContent = 'Incorrect password. Try again.';
+    document.getElementById('loginPass').value = '';
+  }
+}
+
+/* ============================================================
+   DATA LAYER — Firebase primary, localStorage fallback
+   ============================================================ */
 const STORE_KEY = 'gavs_inv_v1';
+let DATA = null;
+let _saveTimer = null;
+let _saving = false;
 
 function seedData(){
   return {
@@ -506,27 +581,78 @@ function seedData(){
         {id:'acc_xlr', name:'XLR Cables', totalQty:1},
       ]},
     ],
-    venues: [
-      {id:'v1', name:'Kolkata Ideaco'},
-    ],
+    venues: [],
     bookings: [],
     dlog: {}
   };
 }
 
-function loadData(){
-  let raw = localStorage.getItem(STORE_KEY);
-  if(!raw){ const seeded = seedData(); localStorage.setItem(STORE_KEY, JSON.stringify(seeded)); return seeded; }
-  try{
-    const d = JSON.parse(raw);
-    if(!d.bookings) d.bookings = [];   // migration from v2
-    if(!d.dlog) d.dlog = {};
-    return d;
-  }catch(e){ const seeded = seedData(); localStorage.setItem(STORE_KEY, JSON.stringify(seeded)); return seeded; }
+function setSaveInd(msg, color){
+  const el = document.getElementById('saveInd');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.color = color || 'var(--sub)';
 }
-function saveData(){ localStorage.setItem(STORE_KEY, JSON.stringify(DATA)); }
 
-let DATA = loadData();
+function saveData(){
+  // Always write to localStorage immediately as backup
+  localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
+  // Debounced Firebase save
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(()=>saveCloud(), 600);
+}
+
+function saveCloud(){
+  setSaveInd('Saving…', 'var(--amber)');
+  DOC_REF.set(DATA)
+    .then(()=>{ setSaveInd('Saved ✓', 'var(--green)'); setTimeout(()=>setSaveInd(''), 2500); })
+    .catch(e=>{ console.error('Firebase save error', e); setSaveInd('Offline — saved locally', 'var(--red)'); });
+}
+
+async function loadFromFirebase(){
+  try {
+    const snap = await DOC_REF.get();
+    if(snap.exists){
+      const d = snap.data();
+      if(!d.bookings) d.bookings = [];
+      if(!d.dlog) d.dlog = {};
+      return d;
+    }
+    // First time — seed and save to Firebase
+    const seeded = seedData();
+    await DOC_REF.set(seeded);
+    return seeded;
+  } catch(e){
+    console.warn('Firebase load failed, using localStorage:', e);
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ try{ const d=JSON.parse(raw); if(!d.bookings)d.bookings=[]; if(!d.dlog)d.dlog={}; return d; }catch(_){} }
+    return seedData();
+  }
+}
+
+async function initApp(){
+  setSaveInd('Loading…', 'var(--amber)');
+  DATA = await loadFromFirebase();
+  setSaveInd('');
+  document.getElementById('dateInput').value = currentDate;
+  // Subscribe to real-time updates so multiple devices stay in sync
+  DOC_REF.onSnapshot(snap=>{
+    if(snap.exists && !_saving){
+      const d = snap.data();
+      if(!d.bookings) d.bookings = [];
+      if(!d.dlog) d.dlog = {};
+      DATA = d;
+      localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
+      render();
+    }
+  });
+  switchTab('assign');
+}
+
+/* ============================================================
+   STARTUP — check session first
+   ============================================================ */
+
 let currentDate = new Date().toISOString().slice(0,10);
 let currentTab = 'assign';
 let editingItemId = null, editingItemCatId = null;
@@ -1541,7 +1667,13 @@ function assignedQtyForItemExcludingBooking(itemId, date, excludeBookingId){
 
 /* ---------------- INIT ---------------- */
 document.getElementById('dateInput').value = currentDate;
-switchTab('assign');
+
+// Check if already logged in
+if(localStorage.getItem(SESSION_KEY) === '1'){
+  document.getElementById('loginScreen').style.display = 'none';
+  initApp();
+}
+// else login screen stays visible
 </script>
 </body>
 </html>
