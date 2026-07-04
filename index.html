@@ -8,17 +8,17 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
-    --bg:#0d1117;
-    --panel:#161b22;
-    --panel2:#1c2330;
-    --line:#2a3241;
-    --text:#e6edf3;
-    --sub:#8b96a5;
-    --amber:#ffb454;
-    --amber-dim:#4a3a1f;
-    --green:#5fd08a;
-    --red:#ff6b6b;
-    --blue:#5fa8ff;
+    --bg:#f5f6f8;
+    --panel:#ffffff;
+    --panel2:#f0f1f4;
+    --line:#e0e3ea;
+    --text:#1a1d23;
+    --sub:#7a8294;
+    --amber:#e8670a;
+    --amber-dim:#fdf0e8;
+    --green:#1a9e5c;
+    --red:#d63b3b;
+    --blue:#1a6fd6;
     --radius:10px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -29,14 +29,15 @@
 
   header{
     position:sticky;top:0;z-index:50;
-    background:linear-gradient(180deg,#11161f 0%,#0d1117 100%);
+    background:#ffffff;
     border-bottom:1px solid var(--line);
     padding:14px 16px 10px;
+    box-shadow:0 1px 6px rgba(0,0,0,.06);
   }
   .h-top{display:flex;align-items:center;justify-content:space-between;}
   .h-title{display:flex;align-items:center;gap:9px;}
   .h-title .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);
-    box-shadow:0 0 8px var(--amber);}
+    box-shadow:0 0 6px rgba(232,103,10,.4);}
   .h-title h1{font-size:16px;margin:0;letter-spacing:.3px;font-weight:700;}
   .h-title .sub{font-size:10.5px;color:var(--sub);letter-spacing:1.5px;text-transform:uppercase;}
   .date-row{display:flex;align-items:center;gap:6px;margin-top:10px;}
@@ -68,7 +69,7 @@
   .venue-head{display:flex;align-items:flex-start;justify-content:space-between;padding:10px 10px 6px;gap:6px;}
   .venue-name{font-weight:700;font-size:13px;line-height:1.25;word-break:break-word;}
   .venue-meta{font-size:10px;color:var(--sub);margin-top:2px;}
-  .add-btn{background:var(--amber);color:#211500;border:none;border-radius:6px;
+  .add-btn{background:var(--amber);color:#fff;border:none;border-radius:6px;
     padding:5px 9px;font-size:11px;font-weight:700;white-space:nowrap;}
   .venue-items{padding:0 10px 10px;flex:1;}
   .item-row{display:flex;justify-content:space-between;align-items:center;
@@ -126,9 +127,9 @@
 
   /* FAB */
   .fab{position:fixed;bottom:20px;right:18px;z-index:60;
-    background:var(--amber);color:#211500;width:54px;height:54px;border-radius:50%;
+    background:var(--amber);color:#fff;width:54px;height:54px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;
-    box-shadow:0 4px 14px rgba(0,0,0,.5);border:none;}
+    box-shadow:0 4px 14px rgba(232,103,10,.35);border:none;}
 
   /* Modal / sheet */
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none;}
@@ -153,7 +154,7 @@
     padding:10px 11px;border-radius:8px;font-size:14.5px;}
 
   .btn{width:100%;padding:13px;border-radius:9px;border:none;font-weight:700;font-size:14.5px;}
-  .btn-primary{background:var(--amber);color:#211500;}
+  .btn-primary{background:var(--amber);color:#fff;}
   .btn-outline{background:transparent;border:1px solid var(--line);color:var(--text);margin-top:8px;}
   .btn-danger{background:transparent;border:1px solid var(--red);color:var(--red);}
 
@@ -213,20 +214,20 @@
     display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;}
   .login-box{width:100%;max-width:340px;}
   .login-logo{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:32px;}
-  .login-logo .dot{width:12px;height:12px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber);}
+  .login-logo .dot{width:12px;height:12px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px rgba(232,103,10,.4);}
   .login-logo h2{margin:0;font-size:22px;font-weight:700;}
   .login-logo .sub{font-size:11px;color:var(--sub);letter-spacing:1.5px;text-transform:uppercase;}
   .login-field{margin-bottom:14px;}
   .login-field label{display:block;font-size:11px;color:var(--sub);margin-bottom:5px;text-transform:uppercase;letter-spacing:.8px;}
   .login-field input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
     padding:12px 14px;border-radius:9px;font-size:15px;}
-  .login-btn{width:100%;padding:14px;background:var(--amber);color:#211500;border:none;
+  .login-btn{width:100%;padding:14px;background:var(--amber);color:#fff;border:none;
     border-radius:9px;font-weight:700;font-size:15px;margin-top:6px;}
   .login-err{color:var(--red);font-size:12.5px;text-align:center;margin-top:10px;min-height:18px;}
   .save-ind{position:fixed;top:6px;right:10px;font-size:10px;color:var(--sub);z-index:200;pointer-events:none;}
 
   .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
-    background:#1c2330;border:1px solid var(--line);color:var(--text);
+    background:#fff;border:1px solid var(--line);color:var(--text);
     padding:9px 16px;border-radius:20px;font-size:12.5px;z-index:200;opacity:0;
     transition:opacity .25s;pointer-events:none;}
   .toast.show{opacity:1;}
@@ -342,7 +343,7 @@
       <div style="font-size:11px;color:var(--sub);margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px;">New Venue Name</div>
       <div style="display:flex;gap:8px;">
         <input type="text" id="pickerNewVenueName" placeholder="e.g. Taj Palace" style="flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:7px;font-size:13.5px;">
-        <button onclick="savePickerNewVenue()" style="background:var(--amber);color:#211500;border:none;border-radius:7px;padding:8px 12px;font-weight:700;font-size:12px;">Add</button>
+        <button onclick="savePickerNewVenue()" style="background:var(--amber);color:#fff;border:none;border-radius:7px;padding:8px 12px;font-weight:700;font-size:12px;">Add</button>
       </div>
     </div>
 
@@ -1226,7 +1227,7 @@ function renderInventory(){
           <div style="display:flex;gap:6px;align-items:center;margin-top:6px;width:100%;">
             <input type="number" id="stockQty_${it.id}" placeholder="qty" min="1"
               style="flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:6px 8px;border-radius:6px;font-size:13px;">
-            <button class="dc-yes" style="background:var(--green);color:#0d1117;" onclick="confirmAddStock('${it.id}')">Add</button>
+            <button class="dc-yes" style="background:var(--green);color:#fff;" onclick="confirmAddStock('${it.id}')">Add</button>
             <button class="dc-no" onclick="hideDel('stock_${it.id}')">Cancel</button>
           </div>
         </div>
