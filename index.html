@@ -730,11 +730,21 @@ async function loadFromFirebase(){
 async function initApp(){
   setSaveInd('Loading…', 'var(--amber)');
   DATA = await loadFromFirebase();
-  if(!DATA) return; // network error shown, wait for retry
+  if(!DATA) return;
+
+  // Auto-restore if categories are missing or empty
+  if(!DATA.categories || DATA.categories.length === 0){
+    const fresh = seedData();
+    fresh.venues = DATA.venues || [];
+    fresh.bookings = DATA.bookings || [];
+    fresh.dlog = DATA.dlog || {};
+    DATA = fresh;
+    try{ await DOC_REF.set(DATA); toast('Inventory auto-restored ✓'); }catch(e){ showNetworkError(); return; }
+  }
+
   setSaveInd('');
   hideNetworkError();
   document.getElementById('dateInput').value = currentDate;
-  // Real-time sync for multi-user
   DOC_REF.onSnapshot(snap=>{
     if(snap.exists && !_saving){
       const d = snap.data();
@@ -743,10 +753,7 @@ async function initApp(){
       DATA = d;
       render();
     }
-  }, err=>{
-    console.error('Snapshot error:', err);
-    showNetworkError();
-  });
+  }, err=>{ console.error('Snapshot error:', err); showNetworkError(); });
   switchTab('assign');
 }
 
