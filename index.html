@@ -796,14 +796,17 @@ function renderAssign(){
     // All bookings for this venue active on the current date
     const vBookings = DATA.bookings.filter(b=>b.venueId===v.id && dateInBookingWindow(b, currentDate));
     // Aggregate items + dominant phase for the date
-    let itemsHtml = '';
-    let phaseChips = '';
-    let totalTypes = 0;
+    const phaseSet = new Set();
     vBookings.forEach(b=>{
       const phase = bookingPhaseOn(b, currentDate);
-      phaseChips += phaseBadge(phase);
+      if(phase) phaseSet.add(phase);
+    });
+    const phaseChips = [...phaseSet].map(p=>phaseBadge(p)).join('');
+    let itemsHtml = '';
+    let totalTypes = 0;
+    vBookings.forEach(b=>{
       Object.entries(b.items).forEach(([iid, qty])=>{
-      const dcId = `dc_rm_${b.id}_${iid}`;
+        const dcId = `dc_rm_${b.id}_${iid}`;
         const info = findItem(iid);
         const nm = info ? info.item.name : iid;
         totalTypes++;
