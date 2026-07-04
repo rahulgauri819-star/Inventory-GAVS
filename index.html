@@ -434,6 +434,9 @@
   <div class="sheet-head"><h3>Edit Booking</h3><span class="close" onclick="closeAllSheets()">×</span></div>
   <div class="sheet-body">
     <div class="field"><label>Venue</label><select id="editVenueSelect"></select></div>
+    <div class="field"><label>Client / Event Name</label>
+      <input type="text" id="editClientName" placeholder="e.g. Sharma Wedding">
+    </div>
     <div class="phase-range-block prb-out">
       <div class="prb-title"><span>🚚</span> Transit Out (optional)</div>
       <div class="range-dates">
@@ -860,6 +863,7 @@ function switchTab(tab){
 }
 
 function render(){
+  if(!DATA) return;
   if(currentTab==='assign') renderAssign();
   else if(currentTab==='inventory') renderInventory();
   else if(currentTab==='summary') renderSummary();
@@ -1187,7 +1191,7 @@ function getPickerDates(){
   const evTo = document.getElementById('evTo').value;
   const backFrom = document.getElementById('backFrom').value;
   const backTo = document.getElementById('backTo').value;
-  if(!evFrom || !evTo) return [];
+  if(!evFrom || !evTo) return [currentDate]; // fallback to today
   const from = outFrom || evFrom;
   const to = backTo || evTo;
   return dateListBetween(from, to);
@@ -1236,7 +1240,18 @@ function renderPickerItems(){
 function stepQty(itemId, delta){
   const dates = getPickerDates();
   if(dates.length===0){ toast('Set event dates first'); return; }
-  const av = availableQtyAcrossDates(itemId, dates, null);
+  const venueId = document.getElementById('pickerVenueSelect').value;
+  const existingBkId = (DATA.bookings.find(b=>b.venueId===venueId && dates.some(d=>dateInBookingWindow(b,d)))||{}).id;
+  let minAv = Infinity;
+  dates.forEach(d=>{
+    const others = assignedQtyForItemExcludingBooking(itemId, d, existingBkId||'__none__');
+    const info = findItem(itemId);
+    const rep = info?(info.item.repairQty||0):0;
+    const total = info?info.item.totalQty:0;
+    const a = total - rep - others;
+    if(a < minAv) minAv = a;
+  });
+  const av = minAv === Infinity ? 0 : minAv;
   const current = assignPickerQtys[itemId] || 0;
   let next = current + delta;
   if(next < 0) next = 0;
@@ -1846,37 +1861,6 @@ function renderSummary(){
     main.innerHTML = html; return;
   }
 
-  function summaryVenueBlock(entry){
-    const {vid, vName, items, phases, returnDate} = entry;
-    const isMin = SUMMARY_MIN[vid]===true;
-    const phaseArr = [...phases];
-    const phaseLine = phaseArr.map(p=>phaseBadge(p)).join('');
-    const itemCount = Object.values(items).reduce((s,i)=>s+i.qty,0);
-    let itemRows = Object.values(items).map(i=>
-      `<div class="summary-stat" style="margin-bottom:6px;">
-        <span class="ss-name">${esc(i.name)}</span>
-        <span class="ss-qty">${i.qty}</span>
-      </div>`
-    ).join('');
-    return `<div class="venue-card" style="margin-bottom:8px;">
-      <div class="venue-head" onclick="toggleSummaryMin('${vid}')" style="cursor:pointer;">
-        <div style="flex:1;min-width:0;">
-          <div class="venue-name">${esc(vName)}</div>
-          <div class="venue-meta">${itemCount} units · Returns ${returnDate?fmtDate(returnDate):'—'}</div>
-          ${isMin ? `<div class="booking-phases" style="margin-top:4px;">${phaseLine}</div>` : ''}
-        </div>
-        <div class="venue-head-actions" onclick="event.stopPropagation()">
-          <span class="venue-min-btn${isMin?' minimized':''}">▾</span>
-          <button class="add-btn" style="background:var(--blue);color:#fff;" onclick="makeSummaryPDF('${vid}')">📄 PDF</button>
-        </div>
-      </div>
-      <div class="venue-body${isMin?' minimized':''}">
-        <div class="booking-phases" style="padding:0 10px 8px;">${phaseLine}</div>
-        <div style="padding:0 10px 10px;">${itemRows}</div>
-      </div>
-    </div>`;
-  }
-
   if(dispatchToday.length){
     html += `<div class="section-label">🚚 Dispatching Today</div>`;
     dispatchToday.forEach(e=>{ html += summaryVenueBlock(e); });
@@ -1889,6 +1873,37 @@ function renderSummary(){
 }
 
 function toggleSummaryMin(vid){
+
+function summaryVenueBlock(entry){
+  const {vid, vName, items, phases, returnDate} = entry;
+  const isMin = SUMMARY_MIN[vid]===true;
+  const phaseArr = [...phases];
+  const phaseLine = phaseArr.map(p=>phaseBadge(p)).join('');
+  const itemCount = Object.values(items).reduce((s,i)=>s+i.qty,0);
+  let itemRows = Object.values(items).map(i=>
+    `<div class="summary-stat" style="margin-bottom:6px;">
+      <span class="ss-name">${esc(i.name)}</span>
+      <span class="ss-qty">${i.qty}</span>
+    </div>`
+  ).join('');
+  return `<div class="venue-card" style="margin-bottom:8px;">
+    <div class="venue-head" onclick="toggleSummaryMin('${vid}')" style="cursor:pointer;">
+      <div style="flex:1;min-width:0;">
+        <div class="venue-name">${esc(vName)}</div>
+        <div class="venue-meta">${itemCount} units · Returns ${returnDate?fmtDate(returnDate):'—'}</div>
+        ${isMin ? `<div class="booking-phases" style="margin-top:4px;">${phaseLine}</div>` : ''}
+      </div>
+      <div class="venue-head-actions" onclick="event.stopPropagation()">
+        <span class="venue-min-btn${isMin?' minimized':''}">▾</span>
+        <button class="add-btn" style="background:var(--blue);color:#fff;" onclick="makeSummaryPDF('${vid}')">📄 PDF</button>
+      </div>
+    </div>
+    <div class="venue-body${isMin?' minimized':''}">
+      <div class="booking-phases" style="padding:0 10px 8px;">${phaseLine}</div>
+      <div style="padding:0 10px 10px;">${itemRows}</div>
+    </div>
+  </div>`;
+}
   SUMMARY_MIN[vid] = !SUMMARY_MIN[vid];
   renderSummary();
 }
@@ -1975,7 +1990,7 @@ function openEditBooking(bookingId){
   g('editBackFrom', b.transitBack&&b.transitBack.from);
   g('editBackTo', b.transitBack&&b.transitBack.to);
 
-  document.getElementById('editConflictArea').innerHTML = '';
+  document.getElementById('editClientName').value = b.clientName||'';
   renderEditItems();
   openSheet('editBookingSheet');
 }
@@ -2075,6 +2090,7 @@ function saveBookingEdit(){
   b.event = event;
   b.transitBack = transitBack;
   b.items = newItems;
+  b.clientName = document.getElementById('editClientName').value.trim() || b.clientName || '';
   saveData();
   closeAllSheets();
   render();
