@@ -843,14 +843,6 @@ function renderAssign(){
     </div>`;
   });
   html += '</div>';
-
-  // Upcoming bookings (window starts after current date)
-  const upcoming = DATA.bookings.filter(b=>bookingWindow(b).from > currentDate)
-    .sort((a,b)=>bookingWindow(a).from.localeCompare(bookingWindow(b).from));
-  if(upcoming.length){
-    html += '<div class="section-label">Upcoming Bookings</div>';
-    upcoming.forEach(b=>{ html += bookingCard(b, null); });
-  }
   main.innerHTML = html;
 }
 
