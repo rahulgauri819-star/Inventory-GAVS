@@ -732,14 +732,13 @@ async function initApp(){
   DATA = await loadFromFirebase();
   if(!DATA) return;
 
-  // Auto-restore if categories are missing or empty
-  if(!DATA.categories || DATA.categories.length === 0){
+  // Auto-restore ONLY on genuine first run (completely empty doc)
+  if((!DATA.categories || DATA.categories.length === 0) &&
+     (!DATA.venues || DATA.venues.length === 0) &&
+     (!DATA.bookings || DATA.bookings.length === 0)){
     const fresh = seedData();
-    fresh.venues = DATA.venues || [];
-    fresh.bookings = DATA.bookings || [];
-    fresh.dlog = DATA.dlog || {};
     DATA = fresh;
-    try{ await DOC_REF.set(DATA); toast('Inventory auto-restored ✓'); }catch(e){ showNetworkError(); return; }
+    try{ await DOC_REF.set(DATA); toast('Inventory initialized ✓'); }catch(e){ showNetworkError(); return; }
   }
 
   setSaveInd('');
@@ -1752,11 +1751,6 @@ async function restoreInventoryNow(){
 function renderVenues(){
   const main = document.getElementById('mainArea');
   let html = '<div class="section-label">Venues</div>';
-  html += `<div style="margin-bottom:12px;">
-    <button onclick="restoreInventoryNow()" style="width:100%;padding:12px;background:#fff3e8;border:2px solid var(--amber);color:var(--amber);border-radius:8px;font-weight:700;font-size:14px;">
-      🔄 Restore Full Inventory to Firebase
-    </button>
-  </div>`;
   if(DATA.venues.length===0){
     html += '<div class="empty-state">No venues yet. Tap + to add one.</div>';
   }
