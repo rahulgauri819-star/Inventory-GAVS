@@ -350,6 +350,9 @@
     <div id="pickerAddVenue" style="text-align:right;margin:-8px 0 8px;">
       <span onclick="openPickerAddVenue()" style="color:var(--amber);font-size:12px;font-weight:600;cursor:pointer;">+ Add New Venue</span>
     </div>
+    <div class="field"><label>Client / Event Name</label>
+      <input type="text" id="pickerClientName" placeholder="e.g. Sharma Wedding, Thomas Cook Conference">
+    </div>
     <div id="pickerNewVenueBox" style="display:none;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
       <div style="font-size:11px;color:var(--sub);margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px;">New Venue Name</div>
       <div style="display:flex;gap:8px;">
@@ -461,6 +464,41 @@
   </div>
 </div>
 
+<!-- Copy Booking sheet -->
+<div class="sheet" id="copyBookingSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3>📋 Copy Booking</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div id="copyBookingInfo" style="background:var(--panel2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;"></div>
+    <div class="phase-range-block prb-out">
+      <div class="prb-title"><span>🚚</span> Transit Out (optional)</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="copyOutFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="copyOutTo"></div>
+      </div>
+    </div>
+    <div class="phase-range-block prb-event">
+      <div class="prb-title"><span>🎪</span> Event Days</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="copyEvFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="copyEvTo"></div>
+      </div>
+    </div>
+    <div class="phase-range-block prb-back">
+      <div class="prb-title"><span>🚚</span> Transit Back (optional)</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="copyBackFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="copyBackTo"></div>
+      </div>
+    </div>
+    <div class="field"><label>Client / Event Name (optional)</label>
+      <input type="text" id="copyClientName" placeholder="e.g. Sharma Wedding">
+    </div>
+    <div id="copyConflictArea"></div>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="confirmCopyBooking()">Copy Booking</button></div>
+</div>
+
 <!-- Add category sheet -->
 <div class="sheet" id="catSheet">
   <div class="sheet-handle"></div>
@@ -534,7 +572,7 @@ function doLogin(){
 /* ============================================================
    DATA LAYER — Firebase primary, localStorage fallback
    ============================================================ */
-const STORE_KEY = 'gavs_inv_v1';
+
 let DATA = null;
 let _saveTimer = null;
 let _saving = false;
@@ -609,6 +647,33 @@ function seedData(){
   };
 }
 
+/* ---- Network error popup ---- */
+function showNetworkError(){
+  let el = document.getElementById('networkError');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'networkError';
+    el.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;
+      display:flex;align-items:center;justify-content:center;padding:24px;`;
+    el.innerHTML = `<div style="background:#fff;border-radius:14px;padding:28px 24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.18);">
+      <div style="font-size:36px;margin-bottom:12px;">📡</div>
+      <div style="font-weight:700;font-size:16px;margin-bottom:8px;color:#1a1d23;">Network Connection Error</div>
+      <div style="font-size:13.5px;color:#7a8294;margin-bottom:20px;line-height:1.5;">Please check your internet connection. Your changes could not be saved.</div>
+      <button onclick="retryConnection()" style="background:#e8670a;color:#fff;border:none;border-radius:8px;padding:11px 24px;font-weight:700;font-size:14px;width:100%;">Retry</button>
+    </div>`;
+    document.body.appendChild(el);
+  }
+  el.style.display = 'flex';
+}
+function hideNetworkError(){ const el=document.getElementById('networkError'); if(el) el.style.display='none'; }
+async function retryConnection(){
+  hideNetworkError();
+  try{
+    await DOC_REF.get();
+    toast('Connected ✓');
+  }catch(e){ showNetworkError(); }
+}
+
 function setSaveInd(msg, color){
   const el = document.getElementById('saveInd');
   if(!el) return;
@@ -617,18 +682,27 @@ function setSaveInd(msg, color){
 }
 
 function saveData(){
-  // Always write to localStorage immediately as backup
-  localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
-  // Debounced Firebase save
+  // Firebase ONLY — no localStorage
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(()=>saveCloud(), 600);
+  _saveTimer = setTimeout(()=>saveCloud(), 400);
 }
 
 function saveCloud(){
+  _saving = true;
   setSaveInd('Saving…', 'var(--amber)');
   DOC_REF.set(DATA)
-    .then(()=>{ setSaveInd('Saved ✓', 'var(--green)'); setTimeout(()=>setSaveInd(''), 2500); })
-    .catch(e=>{ console.error('Firebase save error', e); setSaveInd('Offline — saved locally', 'var(--red)'); });
+    .then(()=>{
+      _saving = false;
+      hideNetworkError();
+      setSaveInd('Saved ✓', 'var(--green)');
+      setTimeout(()=>setSaveInd(''), 2000);
+    })
+    .catch(e=>{
+      _saving = false;
+      console.error('Firebase save error', e);
+      setSaveInd('', '');
+      showNetworkError();
+    });
 }
 
 async function loadFromFirebase(){
@@ -640,33 +714,35 @@ async function loadFromFirebase(){
       if(!d.dlog) d.dlog = {};
       return d;
     }
-    // First time — seed and save to Firebase
     const seeded = seedData();
     await DOC_REF.set(seeded);
     return seeded;
   } catch(e){
-    console.warn('Firebase load failed, using localStorage:', e);
-    const raw = localStorage.getItem(STORE_KEY);
-    if(raw){ try{ const d=JSON.parse(raw); if(!d.bookings)d.bookings=[]; if(!d.dlog)d.dlog={}; return d; }catch(_){} }
-    return seedData();
+    console.error('Firebase load failed:', e);
+    showNetworkError();
+    return null; // block app until connected
   }
 }
 
 async function initApp(){
   setSaveInd('Loading…', 'var(--amber)');
   DATA = await loadFromFirebase();
+  if(!DATA) return; // network error shown, wait for retry
   setSaveInd('');
+  hideNetworkError();
   document.getElementById('dateInput').value = currentDate;
-  // Subscribe to real-time updates so multiple devices stay in sync
+  // Real-time sync for multi-user
   DOC_REF.onSnapshot(snap=>{
     if(snap.exists && !_saving){
       const d = snap.data();
       if(!d.bookings) d.bookings = [];
       if(!d.dlog) d.dlog = {};
       DATA = d;
-      localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
       render();
     }
+  }, err=>{
+    console.error('Snapshot error:', err);
+    showNetworkError();
   });
   switchTab('assign');
 }
@@ -827,12 +903,14 @@ function renderAssign(){
 
     const hasBooking = vBookings.length > 0;
     const btnLabel = hasBooking ? '✎ Edit' : '+ Add';
+    const clientNames = [...new Set(vBookings.map(b=>b.clientName).filter(Boolean))].join(', ');
     const isMin = (VENUE_MIN_STATE[v.id] === true);
     html += `<div class="venue-card">
       <div class="venue-head" onclick="toggleVenueMin('${v.id}')" style="cursor:pointer;">
         <div style="flex:1;min-width:0;">
           <div class="venue-name">${esc(v.name)}</div>
-          <div class="venue-meta">${totalTypes} item type${totalTypes!==1?'s':''} · ${vBookings.length} booking${vBookings.length!==1?'s':''}</div>
+          ${clientNames ? `<div style="font-size:11px;color:var(--amber);font-weight:600;margin-top:1px;">${esc(clientNames)}</div>` : ''}
+          <div class="venue-meta">${totalTypes} item type${totalTypes!==1?'s':''}</div>
           ${isMin && phaseChips ? `<div class="booking-phases" style="margin-top:4px;">${phaseChips}</div>` : ''}
         </div>
         <div class="venue-head-actions" onclick="event.stopPropagation()">
@@ -846,6 +924,7 @@ function renderAssign(){
         <div class="venue-items">
           ${itemsHtml || '<div class="empty-venue">Nothing booked on this date.</div>'}
         </div>
+        ${hasBooking ? `<div style="padding:0 10px 10px;"><button onclick="openCopyBooking('${v.id}')" style="font-size:11px;color:var(--blue);background:none;border:none;padding:0;cursor:pointer;font-weight:600;">📋 Copy to another date</button></div>` : ''}
       </div>
     </div>`;
   });
@@ -936,14 +1015,19 @@ function openAddAssignment(preselectVenueId){
   if(DATA.venues.length===0){ toast('Add a venue first'); return; }
   assignPickerQtys = {};
 
-  // Check if venue already has a booking — pre-fill quantities
+  // Pre-fill client name from existing booking
   if(preselectVenueId){
     const existing = DATA.bookings.find(b=>
       b.venueId===preselectVenueId && dateInBookingWindow(b, currentDate)
     );
     if(existing){
       Object.entries(existing.items).forEach(([iid,qty])=>{ assignPickerQtys[iid]=qty; });
+      document.getElementById('pickerClientName').value = existing.clientName || '';
+    } else {
+      document.getElementById('pickerClientName').value = '';
     }
+  } else {
+    document.getElementById('pickerClientName').value = '';
   }
 
   ['outFrom','outTo','backFrom','backTo'].forEach(id=>document.getElementById(id).value='');
@@ -980,6 +1064,12 @@ function openAddAssignment(preselectVenueId){
     html += `</div>`;
   });
   body.innerHTML = html;
+
+  // Pre-fill stepper display values from assignPickerQtys
+  Object.entries(assignPickerQtys).forEach(([iid,qty])=>{
+    const el = document.getElementById('val_'+iid);
+    if(el && qty>0){ el.textContent=qty; }
+  });
 
   // Add new venue inline at top of venue select
   const venueAddEl = document.getElementById('pickerAddVenue');
@@ -1112,17 +1202,35 @@ function getPickerPhases(){
 }
 
 function renderPickerItems(){
+  const venueId = document.getElementById('pickerVenueSelect').value;
   const dates = getPickerDates();
   DATA.categories.forEach(c=>c.items.forEach(it=>{
-    const av = dates.length ? availableQtyAcrossDates(it.id, dates, null) : it.totalQty;
+    // Exclude this venue's own existing booking from availability check
+    const existingBkId = (DATA.bookings.find(b=>b.venueId===venueId && dates.some(d=>dateInBookingWindow(b,d)))||{}).id;
+    let av;
+    if(dates.length){
+      let min=Infinity;
+      dates.forEach(d=>{
+        const othersUsing = assignedQtyForItemExcludingBooking(it.id, d, existingBkId||'__none__');
+        const info2=findItem(it.id);
+        const rep=info2?(info2.item.repairQty||0):0;
+        const total=info2?info2.item.totalQty:0;
+        const a=total-rep-othersUsing;
+        if(a<min) min=a;
+      });
+      av=min===Infinity?0:min;
+    } else {
+      av=availableQty(it.id, currentDate, null);
+    }
     const avEl = document.getElementById('av_'+it.id);
-    if(avEl) avEl.textContent = 'Available: ' + av + ' / ' + it.totalQty + (dates.length>1 ? ' (whole window)' : '');
+    if(avEl) avEl.textContent = 'Available: ' + av + ' / ' + it.totalQty + (dates.length>1?' (whole window)':'');
     if((assignPickerQtys[it.id]||0) > av){
-      assignPickerQtys[it.id] = 0;
+      assignPickerQtys[it.id] = av;
       const valEl = document.getElementById('val_'+it.id);
-      if(valEl) valEl.textContent = 0;
+      if(valEl) valEl.textContent = av;
     }
   }));
+  updateCatCounts();
 }
 
 function stepQty(itemId, delta){
@@ -1177,6 +1285,7 @@ function confirmAssignment(){
 
   const items = {};
   chosen.forEach(([itemId, qty])=>items[itemId]=qty);
+  const clientName = document.getElementById('pickerClientName').value.trim();
 
   // One booking per venue — merge into existing if found
   const existingBooking = DATA.bookings.find(b=>
@@ -1185,6 +1294,7 @@ function confirmAssignment(){
   if(existingBooking){
     Object.entries(items).forEach(([iid,qty])=>{ existingBooking.items[iid]=qty; });
     Object.keys(existingBooking.items).forEach(iid=>{ if(!existingBooking.items[iid]) delete existingBooking.items[iid]; });
+    if(clientName) existingBooking.clientName = clientName;
     saveData(); closeAllSheets(); render();
     toast('Booking updated');
     return;
@@ -1193,6 +1303,7 @@ function confirmAssignment(){
   DATA.bookings.push({
     id: uid('bk'),
     venueId,
+    clientName,
     transitOut: phases.transitOut,
     event: phases.event,
     transitBack: phases.transitBack,
@@ -1392,6 +1503,61 @@ function saveItem(){
   render();
   toast('Item saved');
 }
+let copySourceVenueId = null;
+
+function openCopyBooking(venueId){
+  copySourceVenueId = venueId;
+  const b = DATA.bookings.find(b=>b.venueId===venueId && dateInBookingWindow(b,currentDate));
+  if(!b){ toast('No booking to copy'); return; }
+  const v = DATA.venues.find(v=>v.id===venueId);
+  const info = document.getElementById('copyBookingInfo');
+  info.innerHTML = `<strong>${v?v.name:''}</strong>${b.clientName?' — '+esc(b.clientName):''}<br>
+    <span style="color:var(--sub);font-size:11.5px;">${Object.keys(b.items).length} item types · ${fmtDate(bookingWindow(b).from)} → ${fmtDate(bookingWindow(b).to)}</span>`;
+  ['copyOutFrom','copyOutTo','copyEvFrom','copyEvTo','copyBackFrom','copyBackTo'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('copyClientName').value = b.clientName||'';
+  document.getElementById('copyConflictArea').innerHTML='';
+  openSheet('copyBookingSheet');
+}
+
+function confirmCopyBooking(){
+  const b = DATA.bookings.find(b=>b.venueId===copySourceVenueId && dateInBookingWindow(b,currentDate));
+  if(!b){ toast('Source booking not found'); return; }
+  const g = id=>document.getElementById(id).value||null;
+  const evFrom = g('copyEvFrom'), evTo = g('copyEvTo');
+  if(!evFrom||!evTo){ toast('Set event dates'); return; }
+  const transitOut = (g('copyOutFrom')&&g('copyOutTo'))?{from:g('copyOutFrom'),to:g('copyOutTo')}:null;
+  const event = {from:evFrom,to:evTo};
+  const transitBack = (g('copyBackFrom')&&g('copyBackTo'))?{from:g('copyBackFrom'),to:g('copyBackTo')}:null;
+  const from = (transitOut&&transitOut.from)||evFrom;
+  const to = (transitBack&&transitBack.to)||evTo;
+  const dates = dateListBetween(from,to);
+  const clientName = document.getElementById('copyClientName').value.trim();
+
+  // Conflict check
+  const conflicts = [];
+  Object.entries(b.items).forEach(([itemId,qty])=>{
+    const info = findItem(itemId);
+    const nm = info?info.item.name:itemId;
+    dates.forEach(d=>{
+      const av = availableQty(itemId,d,null);
+      if(qty>av) conflicts.push({date:d,name:nm,requested:qty,available:av});
+    });
+  });
+  if(conflicts.length){
+    const area = document.getElementById('copyConflictArea');
+    let list = conflicts.slice(0,6).map(c=>`<li>${esc(c.name)} — ${fmtDate(c.date)}: need ${c.requested}, only ${c.available} free</li>`).join('');
+    area.innerHTML=`<div class="conflict-box">Conflicts found — not copied.<ul class="conflict-list">${list}</ul></div>`;
+    toast('Conflicts — not copied'); return;
+  }
+
+  DATA.bookings.push({
+    id:uid('bk'), venueId:copySourceVenueId, clientName,
+    transitOut, event, transitBack, items:{...b.items}
+  });
+  saveData(); closeAllSheets(); render();
+  toast('Booking copied ✓');
+}
+
 function openAddStock(itemId){ showDel('stock_'+itemId); setTimeout(()=>{ const el=document.getElementById('stockQty_'+itemId); if(el){el.value='';el.focus();} },50); }
 function confirmAddStock(itemId){
   const qty = parseInt(document.getElementById('stockQty_'+itemId).value,10);
