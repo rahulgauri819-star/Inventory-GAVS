@@ -1647,9 +1647,50 @@ function openWhereIsIt(itemId){
 }
 
 /* ---------------- VENUES TAB ---------------- */
+function cleanupDuplicateBookings(){
+  let mergeCount = 0;
+  const toDelete = new Set();
+  // Group bookings by venueId
+  const byVenue = {};
+  DATA.bookings.forEach(b=>{ if(!byVenue[b.venueId]) byVenue[b.venueId]=[]; byVenue[b.venueId].push(b); });
+  Object.entries(byVenue).forEach(([vid, bks])=>{
+    if(bks.length <= 1) return;
+    // Sort by event from date
+    bks.sort((a,b)=>a.event.from.localeCompare(b.event.from));
+    // Keep first, merge rest into it
+    const keeper = bks[0];
+    for(let i=1;i<bks.length;i++){
+      const b = bks[i];
+      // Merge items — take max qty per item
+      Object.entries(b.items).forEach(([iid,qty])=>{
+        if(!keeper.items[iid] || qty > keeper.items[iid]) keeper.items[iid]=qty;
+      });
+      // Extend date window if needed
+      const bFrom = (b.transitOut&&b.transitOut.from)||b.event.from;
+      const bTo = (b.transitBack&&b.transitBack.to)||b.event.to;
+      const kFrom = (keeper.transitOut&&keeper.transitOut.from)||keeper.event.from;
+      const kTo = (keeper.transitBack&&keeper.transitBack.to)||keeper.event.to;
+      if(bFrom < kFrom){ if(b.transitOut) keeper.transitOut=b.transitOut; else keeper.event.from=bFrom; }
+      if(bTo > kTo){ if(b.transitBack) keeper.transitBack=b.transitBack; else keeper.event.to=bTo; }
+      toDelete.add(b.id);
+      mergeCount++;
+    }
+  });
+  if(mergeCount===0){ toast('No duplicates found ✓'); return; }
+  DATA.bookings = DATA.bookings.filter(b=>!toDelete.has(b.id));
+  saveData();
+  render();
+  toast(`Merged ${mergeCount} duplicate booking${mergeCount!==1?'s':''} ✓`);
+}
+
 function renderVenues(){
   const main = document.getElementById('mainArea');
   let html = '<div class="section-label">Venues</div>';
+  html += `<div style="margin-bottom:10px;">
+    <button onclick="cleanupDuplicateBookings()" style="width:100%;padding:10px;background:#fff3e8;border:1px solid var(--amber);color:var(--amber);border-radius:8px;font-weight:700;font-size:13px;">
+      🔧 Merge Duplicate Bookings (one-time cleanup)
+    </button>
+  </div>`;
   if(DATA.venues.length===0){
     html += '<div class="empty-state">No venues yet. Tap + to add one.</div>';
   }
