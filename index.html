@@ -895,14 +895,21 @@ function renderAssign(){
     const phaseChips = [...phaseSet].map(p=>phaseBadge(p)).join('');
     let itemsHtml = '';
     let totalTypes = 0;
+    // Merge items from all bookings for this venue, sum quantities, then sort alphabetically
+    const mergedItems = {};
     vBookings.forEach(b=>{
       Object.entries(b.items).forEach(([iid, qty])=>{
+        if(!mergedItems[iid]) mergedItems[iid] = {qty:0, name:''};
         const info = findItem(iid);
-        const nm = info ? info.item.name : iid;
-        totalTypes++;
-        itemsHtml += `<div class="item-row"><span>${esc(nm)}</span>
-          <span class="qty">${qty}</span></div>`;
+        mergedItems[iid].name = info ? info.item.name : iid;
+        mergedItems[iid].qty += qty;
       });
+    });
+    const sortedItems = Object.entries(mergedItems).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+    sortedItems.forEach(([iid, d])=>{
+      totalTypes++;
+      itemsHtml += `<div class="item-row"><span>${esc(d.name)}</span>
+        <span class="qty">${d.qty}</span></div>`;
     });
 
     const hasBooking = vBookings.length > 0;
@@ -1576,14 +1583,15 @@ function confirmCopyBooking(){
 function openAddStock(itemId){ showDel('stock_'+itemId); setTimeout(()=>{ const el=document.getElementById('stockQty_'+itemId); if(el){el.value='';el.focus();} },50); }
 function confirmAddStock(itemId){
   const qty = parseInt(document.getElementById('stockQty_'+itemId).value,10);
-  if(isNaN(qty)||qty<1){ toast('Enter valid quantity'); return; }
+  if(isNaN(qty)||qty<1){ toast('Enter a valid quantity (min 1)'); return; }
   const info = findItem(itemId);
   if(!info){ toast('Item not found'); return; }
   info.item.totalQty += qty;
+  if(info.item.totalQty < 0) info.item.totalQty = 0;
   saveData();
   hideDel('stock_'+itemId);
   render();
-  toast(`+${qty} added to ${info.item.name}`);
+  toast(`+${qty} added to ${info.item.name} (total: ${info.item.totalQty})`);
 }
 
 function showItemSheetDel(){ showDel('dc_itemsheet'); }
