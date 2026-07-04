@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GAVS Inventory</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e8670a'/></svg>">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
@@ -80,7 +81,17 @@
   .item-row .del{color:var(--red);font-size:14px;padding:0 3px;margin-left:4px;}
   .empty-venue{color:var(--sub);font-size:11px;padding:2px 0 6px;}
 
-  /* Inventory list */
+  /* Deployment cards in where-is-it */
+  .dep-card{background:#fff;border:1px solid var(--line);border-radius:9px;
+    padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+  .dep-card:last-child{margin-bottom:0;}
+  .dep-icon{font-size:22px;min-width:36px;text-align:center;line-height:1;}
+  .dep-icon .arrow{font-size:13px;display:block;color:var(--amber);font-weight:700;}
+  .dep-body{flex:1;}
+  .dep-venue{font-weight:700;font-size:13.5px;}
+  .dep-phase{font-size:11.5px;color:var(--sub);margin-top:1px;}
+  .dep-return{font-size:11px;color:var(--amber);font-weight:600;margin-top:3px;}
+  .dep-qty{font-size:22px;font-weight:700;color:var(--amber);font-variant-numeric:tabular-nums;}
   .cat-block{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     margin-bottom:10px;overflow:hidden;}
   .cat-head{display:flex;justify-content:space-between;align-items:center;
@@ -806,23 +817,16 @@ function renderAssign(){
     let totalTypes = 0;
     vBookings.forEach(b=>{
       Object.entries(b.items).forEach(([iid, qty])=>{
-        const dcId = `dc_rm_${b.id}_${iid}`;
         const info = findItem(iid);
         const nm = info ? info.item.name : iid;
         totalTypes++;
         itemsHtml += `<div class="item-row"><span>${esc(nm)}</span>
-          <span><span class="qty">${qty}</span>
-          <span class="del" onclick="showDel('${dcId}')">×</span></span></div>
-          <div class="del-confirm" id="${dcId}" style="margin:2px 0 4px;">
-            <span>Remove ${esc(nm)}?</span>
-            <div class="del-confirm-btns">
-              <button class="dc-yes" onclick="removeItemFromBooking('${b.id}','${iid}')">Remove</button>
-              <button class="dc-no" onclick="hideDel('${dcId}')">Keep</button>
-            </div>
-          </div>`;
+          <span class="qty">${qty}</span></div>`;
       });
     });
 
+    const hasBooking = vBookings.length > 0;
+    const btnLabel = hasBooking ? '✎ Edit' : '+ Add';
     const isMin = (VENUE_MIN_STATE[v.id] === true);
     html += `<div class="venue-card">
       <div class="venue-head" onclick="toggleVenueMin('${v.id}')" style="cursor:pointer;">
@@ -834,7 +838,7 @@ function renderAssign(){
         <div class="venue-head-actions" onclick="event.stopPropagation()">
           <span class="venue-min-btn${isMin?' minimized':''}" onclick="toggleVenueMin('${v.id}')">▾</span>
           <span class="icon-btn edit-ic" onclick="openEditVenue('${v.id}')">✎</span>
-          <button class="add-btn" onclick="openAddAssignment('${v.id}')">+ Add</button>
+          <button class="add-btn" onclick="openAddAssignment('${v.id}')">${btnLabel}</button>
         </div>
       </div>
       <div class="venue-body${isMin?' minimized':''}">
@@ -931,6 +935,17 @@ function removeAssignment(venueId, itemId){
 function openAddAssignment(preselectVenueId){
   if(DATA.venues.length===0){ toast('Add a venue first'); return; }
   assignPickerQtys = {};
+
+  // Check if venue already has a booking — pre-fill quantities
+  if(preselectVenueId){
+    const existing = DATA.bookings.find(b=>
+      b.venueId===preselectVenueId && dateInBookingWindow(b, currentDate)
+    );
+    if(existing){
+      Object.entries(existing.items).forEach(([iid,qty])=>{ assignPickerQtys[iid]=qty; });
+    }
+  }
+
   ['outFrom','outTo','backFrom','backTo'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('evFrom').value = currentDate;
   document.getElementById('evTo').value = currentDate;
@@ -1162,6 +1177,19 @@ function confirmAssignment(){
 
   const items = {};
   chosen.forEach(([itemId, qty])=>items[itemId]=qty);
+
+  // One booking per venue — merge into existing if found
+  const existingBooking = DATA.bookings.find(b=>
+    b.venueId===venueId && dates.some(d=>dateInBookingWindow(b,d))
+  );
+  if(existingBooking){
+    Object.entries(items).forEach(([iid,qty])=>{ existingBooking.items[iid]=qty; });
+    Object.keys(existingBooking.items).forEach(iid=>{ if(!existingBooking.items[iid]) delete existingBooking.items[iid]; });
+    saveData(); closeAllSheets(); render();
+    toast('Booking updated');
+    return;
+  }
+
   DATA.bookings.push({
     id: uid('bk'),
     venueId,
@@ -1242,47 +1270,58 @@ function toggleWhereInline(itemId){
   const el = document.getElementById('wi_'+itemId);
   if(!el) return;
   if(el.classList.contains('open')){ el.classList.remove('open'); return; }
-  // Build content
   const info = findItem(itemId);
   if(!info) return;
   const it = info.item;
-  let rows = '';
+  let cards = '';
   let outTotal = 0;
-
+  const venueMap = {};
   DATA.bookings.forEach(b=>{
-    if(!b.items[itemId]) return;
-    if(!dateInBookingWindow(b, currentDate)) return;
+    if(!b.items[itemId]||!dateInBookingWindow(b,currentDate)) return;
     const qty = b.items[itemId];
     outTotal += qty;
     const v = DATA.venues.find(v=>v.id===b.venueId);
-    const vName = v ? v.name : '(deleted)';
-    const phase = bookingPhaseOn(b, currentDate);
-    const phaseTxt = phase==='out'?'🚚 In transit — going':phase==='back'?'🚚 In transit — returning':phase==='event'?'🎪 At event':'Scheduled';
-    rows += `<div class="wi-row">
-      <div class="wi-left"><span class="wi-venue">${esc(vName)}</span><span class="wi-phase">${phaseTxt}</span></div>
-      <span class="wi-qty">${qty}</span>
+    const vName = v?v.name:'(deleted)';
+    const phase = bookingPhaseOn(b,currentDate);
+    const returnDate = (b.transitBack&&b.transitBack.to)?b.transitBack.to:b.event.to;
+    let icon,arrow,phaseTxt;
+    if(phase==='out'){icon='🚚';arrow='→';phaseTxt='In Transit — Going';}
+    else if(phase==='back'){icon='🚚';arrow='←';phaseTxt='In Transit — Returning';}
+    else if(phase==='event'){icon='🎪';arrow='';phaseTxt='At Event';}
+    else{icon='📅';arrow='';phaseTxt='Scheduled';}
+    if(!venueMap[b.venueId]) venueMap[b.venueId]={vName,qty:0,icon,arrow,phaseTxt,returnDate};
+    venueMap[b.venueId].qty+=qty;
+  });
+  Object.values(venueMap).forEach(d=>{
+    cards+=`<div class="dep-card">
+      <div class="dep-icon">${d.icon}<span class="arrow">${d.arrow}</span></div>
+      <div class="dep-body">
+        <div class="dep-venue">${esc(d.vName)}</div>
+        <div class="dep-phase">${d.phaseTxt}</div>
+        <div class="dep-return">Returns: ${fmtDate(d.returnDate)}</div>
+      </div>
+      <div class="dep-qty">${d.qty}</div>
     </div>`;
   });
-
-  // Legacy dlog
   const dl = DATA.dlog[currentDate];
-  if(dl){ for(const vId in dl.venues){
-    const q = dl.venues[vId][itemId]; if(!q) continue;
-    outTotal += q;
-    const v = DATA.venues.find(v=>v.id===vId);
-    rows += `<div class="wi-row">
-      <div class="wi-left"><span class="wi-venue">${esc(v?v.name:'(deleted)')}</span><span class="wi-phase">🎪 Assigned</span></div>
-      <span class="wi-qty">${q}</span>
-    </div>`;
+  if(dl){for(const vId in dl.venues){
+    const q=dl.venues[vId][itemId];if(!q)continue;
+    outTotal+=q;
+    const v=DATA.venues.find(v=>v.id===vId);
+    cards+=`<div class="dep-card"><div class="dep-icon">🎪<span class="arrow"></span></div>
+      <div class="dep-body"><div class="dep-venue">${esc(v?v.name:'(deleted)')}</div><div class="dep-phase">At Event</div></div>
+      <div class="dep-qty">${q}</div></div>`;
   }}
-
-  const rep = it.repairQty||0;
-  if(rep) rows += `<div class="wi-row"><div class="wi-left"><span class="wi-venue">Repair / Damaged</span><span class="wi-phase">🔧 Out of service</span></div><span class="wi-qty">${rep}</span></div>`;
-  const inStock = it.totalQty - rep - outTotal;
-  rows += `<div class="wi-row"><div class="wi-left"><span class="wi-venue">Godown</span><span class="wi-phase">🏠 In stock</span></div><span class="wi-qty">${inStock}</span></div>`;
-  rows += `<div class="wi-total"><span>Total Owned</span><span>${it.totalQty}</span></div>`;
-
-  el.innerHTML = rows || '<div style="color:var(--sub);font-size:12px;">No data</div>';
+  const rep=it.repairQty||0;
+  if(rep) cards+=`<div class="dep-card"><div class="dep-icon">🔧<span class="arrow"></span></div>
+    <div class="dep-body"><div class="dep-venue">Repair / Damaged</div><div class="dep-phase">Out of service</div></div>
+    <div class="dep-qty">${rep}</div></div>`;
+  const inStock=it.totalQty-rep-outTotal;
+  cards+=`<div class="dep-card" style="background:var(--amber-dim);">
+    <div class="dep-icon">🏠<span class="arrow"></span></div>
+    <div class="dep-body"><div class="dep-venue">Godown</div><div class="dep-phase">In stock — available</div></div>
+    <div class="dep-qty" style="color:var(--green);">${inStock}</div></div>`;
+  el.innerHTML=cards;
   el.classList.add('open');
 }
 
@@ -1367,6 +1406,8 @@ function confirmAddStock(itemId){
 }
 
 function showItemSheetDel(){ showDel('dc_itemsheet'); }
+function showDel(id){ const el=document.getElementById(id); if(el) el.classList.add('show'); }
+function hideDel(id){ const el=document.getElementById(id); if(el) el.classList.remove('show'); }
 
 function deleteItem(itemId){
   const info = findItem(itemId);
