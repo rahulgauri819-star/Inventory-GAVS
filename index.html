@@ -743,6 +743,11 @@ async function initApp(){
 
   setSaveInd('');
   hideNetworkError();
+  // Clean orphaned bookings (venue deleted but booking remained)
+  const venueIds = new Set((DATA.venues||[]).map(v=>v.id));
+  const before = DATA.bookings.length;
+  DATA.bookings = DATA.bookings.filter(b=>venueIds.has(b.venueId));
+  if(DATA.bookings.length !== before){ try{ await DOC_REF.set(DATA); }catch(e){} }
   document.getElementById('dateInput').value = currentDate;
   DOC_REF.onSnapshot(snap=>{
     if(snap.exists && !_saving){
@@ -1815,12 +1820,12 @@ function saveVenue(){
   render();
 }
 function deleteVenue(id){
-  // Note: past assignment history in dlog is kept intact for old dates.
-  // Venue is only removed from the active venue list going forward.
+  // Also cancel all bookings for this venue to free the stock
+  DATA.bookings = DATA.bookings.filter(b=>b.venueId!==id);
   DATA.venues = DATA.venues.filter(v=>v.id!==id);
   saveData();
   render();
-  toast('Venue removed (history kept)');
+  toast('Venue and its bookings removed');
 }
 function deleteVenueFromSheet(){
   if(!editingVenueId) return;
