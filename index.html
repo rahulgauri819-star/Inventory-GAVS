@@ -1706,9 +1706,34 @@ function cleanupDuplicateBookings(){
   toast(`Merged ${mergeCount} duplicate booking${mergeCount!==1?'s':''} ✓`);
 }
 
+async function restoreInventoryNow(){
+  const fresh = seedData();
+  // Keep existing venues and bookings if any
+  fresh.venues = (DATA && DATA.venues && DATA.venues.length) ? DATA.venues : [];
+  fresh.bookings = (DATA && DATA.bookings) ? DATA.bookings : [];
+  fresh.dlog = (DATA && DATA.dlog) ? DATA.dlog : {};
+  DATA = fresh;
+  setSaveInd('Restoring…', 'var(--amber)');
+  try{
+    await DOC_REF.set(DATA);
+    setSaveInd('Restored ✓', 'var(--green)');
+    setTimeout(()=>setSaveInd(''), 2000);
+    render();
+    toast('Inventory restored! Go to Inventory tab to verify.');
+  }catch(e){
+    setSaveInd('','');
+    showNetworkError();
+  }
+}
+
 function renderVenues(){
   const main = document.getElementById('mainArea');
   let html = '<div class="section-label">Venues</div>';
+  html += `<div style="margin-bottom:12px;">
+    <button onclick="restoreInventoryNow()" style="width:100%;padding:12px;background:#fff3e8;border:2px solid var(--amber);color:var(--amber);border-radius:8px;font-weight:700;font-size:14px;">
+      🔄 Restore Full Inventory to Firebase
+    </button>
+  </div>`;
   if(DATA.venues.length===0){
     html += '<div class="empty-state">No venues yet. Tap + to add one.</div>';
   }
