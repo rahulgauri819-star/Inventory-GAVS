@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GAVS Inventory</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e8670a'/></svg>">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
@@ -80,7 +81,17 @@
   .item-row .del{color:var(--red);font-size:14px;padding:0 3px;margin-left:4px;}
   .empty-venue{color:var(--sub);font-size:11px;padding:2px 0 6px;}
 
-  /* Inventory list */
+  /* Deployment cards in where-is-it */
+  .dep-card{background:#fff;border:1px solid var(--line);border-radius:9px;
+    padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+  .dep-card:last-child{margin-bottom:0;}
+  .dep-icon{font-size:22px;min-width:36px;text-align:center;line-height:1;}
+  .dep-icon .arrow{font-size:13px;display:block;color:var(--amber);font-weight:700;}
+  .dep-body{flex:1;}
+  .dep-venue{font-weight:700;font-size:13.5px;}
+  .dep-phase{font-size:11.5px;color:var(--sub);margin-top:1px;}
+  .dep-return{font-size:11px;color:var(--amber);font-weight:600;margin-top:3px;}
+  .dep-qty{font-size:22px;font-weight:700;color:var(--amber);font-variant-numeric:tabular-nums;}
   .cat-block{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     margin-bottom:10px;overflow:hidden;}
   .cat-head{display:flex;justify-content:space-between;align-items:center;
@@ -339,6 +350,9 @@
     <div id="pickerAddVenue" style="text-align:right;margin:-8px 0 8px;">
       <span onclick="openPickerAddVenue()" style="color:var(--amber);font-size:12px;font-weight:600;cursor:pointer;">+ Add New Venue</span>
     </div>
+    <div class="field"><label>Client / Event Name</label>
+      <input type="text" id="pickerClientName" placeholder="e.g. Sharma Wedding, Thomas Cook Conference">
+    </div>
     <div id="pickerNewVenueBox" style="display:none;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
       <div style="font-size:11px;color:var(--sub);margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px;">New Venue Name</div>
       <div style="display:flex;gap:8px;">
@@ -420,6 +434,9 @@
   <div class="sheet-head"><h3>Edit Booking</h3><span class="close" onclick="closeAllSheets()">×</span></div>
   <div class="sheet-body">
     <div class="field"><label>Venue</label><select id="editVenueSelect"></select></div>
+    <div class="field"><label>Client / Event Name</label>
+      <input type="text" id="editClientName" placeholder="e.g. Sharma Wedding">
+    </div>
     <div class="phase-range-block prb-out">
       <div class="prb-title"><span>🚚</span> Transit Out (optional)</div>
       <div class="range-dates">
@@ -450,6 +467,41 @@
   </div>
 </div>
 
+<!-- Copy Booking sheet -->
+<div class="sheet" id="copyBookingSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3>📋 Copy Booking</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div id="copyBookingInfo" style="background:var(--panel2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;"></div>
+    <div class="phase-range-block prb-out">
+      <div class="prb-title"><span>🚚</span> Transit Out (optional)</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="copyOutFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="copyOutTo"></div>
+      </div>
+    </div>
+    <div class="phase-range-block prb-event">
+      <div class="prb-title"><span>🎪</span> Event Days</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="copyEvFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="copyEvTo"></div>
+      </div>
+    </div>
+    <div class="phase-range-block prb-back">
+      <div class="prb-title"><span>🚚</span> Transit Back (optional)</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="copyBackFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="copyBackTo"></div>
+      </div>
+    </div>
+    <div class="field"><label>Client / Event Name (optional)</label>
+      <input type="text" id="copyClientName" placeholder="e.g. Sharma Wedding">
+    </div>
+    <div id="copyConflictArea"></div>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="confirmCopyBooking()">Copy Booking</button></div>
+</div>
+
 <!-- Add category sheet -->
 <div class="sheet" id="catSheet">
   <div class="sheet-handle"></div>
@@ -475,7 +527,7 @@
     <button class="btn btn-primary" onclick="saveVenue()">Save Venue</button>
     <button class="btn btn-danger" id="deleteVenueBtn" style="display:none;margin-top:8px;" onclick="showDel('dc_venuesheet')">Delete Venue</button>
     <div class="del-confirm" id="dc_venuesheet" style="margin:8px 0 0;">
-      <span>Delete this venue? History kept.</span>
+      <span>Delete this venue and free all its inventory?</span>
       <div class="del-confirm-btns">
         <button class="dc-yes" onclick="deleteVenueFromSheet()">Delete</button>
         <button class="dc-no" onclick="hideDel('dc_venuesheet')">Cancel</button>
@@ -523,7 +575,7 @@ function doLogin(){
 /* ============================================================
    DATA LAYER — Firebase primary, localStorage fallback
    ============================================================ */
-const STORE_KEY = 'gavs_inv_v1';
+
 let DATA = null;
 let _saveTimer = null;
 let _saving = false;
@@ -598,6 +650,33 @@ function seedData(){
   };
 }
 
+/* ---- Network error popup ---- */
+function showNetworkError(){
+  let el = document.getElementById('networkError');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'networkError';
+    el.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;
+      display:flex;align-items:center;justify-content:center;padding:24px;`;
+    el.innerHTML = `<div style="background:#fff;border-radius:14px;padding:28px 24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.18);">
+      <div style="font-size:36px;margin-bottom:12px;">📡</div>
+      <div style="font-weight:700;font-size:16px;margin-bottom:8px;color:#1a1d23;">Network Connection Error</div>
+      <div style="font-size:13.5px;color:#7a8294;margin-bottom:20px;line-height:1.5;">Please check your internet connection. Your changes could not be saved.</div>
+      <button onclick="retryConnection()" style="background:#e8670a;color:#fff;border:none;border-radius:8px;padding:11px 24px;font-weight:700;font-size:14px;width:100%;">Retry</button>
+    </div>`;
+    document.body.appendChild(el);
+  }
+  el.style.display = 'flex';
+}
+function hideNetworkError(){ const el=document.getElementById('networkError'); if(el) el.style.display='none'; }
+async function retryConnection(){
+  hideNetworkError();
+  try{
+    await DOC_REF.get();
+    toast('Connected ✓');
+  }catch(e){ showNetworkError(); }
+}
+
 function setSaveInd(msg, color){
   const el = document.getElementById('saveInd');
   if(!el) return;
@@ -606,18 +685,27 @@ function setSaveInd(msg, color){
 }
 
 function saveData(){
-  // Always write to localStorage immediately as backup
-  localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
-  // Debounced Firebase save
+  // Firebase ONLY — no localStorage
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(()=>saveCloud(), 600);
+  _saveTimer = setTimeout(()=>saveCloud(), 400);
 }
 
 function saveCloud(){
+  _saving = true;
   setSaveInd('Saving…', 'var(--amber)');
   DOC_REF.set(DATA)
-    .then(()=>{ setSaveInd('Saved ✓', 'var(--green)'); setTimeout(()=>setSaveInd(''), 2500); })
-    .catch(e=>{ console.error('Firebase save error', e); setSaveInd('Offline — saved locally', 'var(--red)'); });
+    .then(()=>{
+      _saving = false;
+      hideNetworkError();
+      setSaveInd('Saved ✓', 'var(--green)');
+      setTimeout(()=>setSaveInd(''), 2000);
+    })
+    .catch(e=>{
+      _saving = false;
+      console.error('Firebase save error', e);
+      setSaveInd('', '');
+      showNetworkError();
+    });
 }
 
 async function loadFromFirebase(){
@@ -629,34 +717,47 @@ async function loadFromFirebase(){
       if(!d.dlog) d.dlog = {};
       return d;
     }
-    // First time — seed and save to Firebase
     const seeded = seedData();
     await DOC_REF.set(seeded);
     return seeded;
   } catch(e){
-    console.warn('Firebase load failed, using localStorage:', e);
-    const raw = localStorage.getItem(STORE_KEY);
-    if(raw){ try{ const d=JSON.parse(raw); if(!d.bookings)d.bookings=[]; if(!d.dlog)d.dlog={}; return d; }catch(_){} }
-    return seedData();
+    console.error('Firebase load failed:', e);
+    showNetworkError();
+    return null; // block app until connected
   }
 }
 
 async function initApp(){
   setSaveInd('Loading…', 'var(--amber)');
   DATA = await loadFromFirebase();
+  if(!DATA) return;
+
+  // Auto-restore ONLY on genuine first run (completely empty doc)
+  if((!DATA.categories || DATA.categories.length === 0) &&
+     (!DATA.venues || DATA.venues.length === 0) &&
+     (!DATA.bookings || DATA.bookings.length === 0)){
+    const fresh = seedData();
+    DATA = fresh;
+    try{ await DOC_REF.set(DATA); toast('Inventory initialized ✓'); }catch(e){ showNetworkError(); return; }
+  }
+
   setSaveInd('');
+  hideNetworkError();
+  // Clean orphaned bookings (venue deleted but booking remained)
+  const venueIds = new Set((DATA.venues||[]).map(v=>v.id));
+  const before = DATA.bookings.length;
+  DATA.bookings = DATA.bookings.filter(b=>venueIds.has(b.venueId));
+  if(DATA.bookings.length !== before){ try{ await DOC_REF.set(DATA); }catch(e){} }
   document.getElementById('dateInput').value = currentDate;
-  // Subscribe to real-time updates so multiple devices stay in sync
   DOC_REF.onSnapshot(snap=>{
     if(snap.exists && !_saving){
       const d = snap.data();
       if(!d.bookings) d.bookings = [];
       if(!d.dlog) d.dlog = {};
       DATA = d;
-      localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
       render();
     }
-  });
+  }, err=>{ console.error('Snapshot error:', err); showNetworkError(); });
   switchTab('assign');
 }
 
@@ -773,6 +874,7 @@ function switchTab(tab){
 }
 
 function render(){
+  if(!DATA) return;
   if(currentTab==='assign') renderAssign();
   else if(currentTab==='inventory') renderInventory();
   else if(currentTab==='summary') renderSummary();
@@ -796,42 +898,47 @@ function renderAssign(){
     // All bookings for this venue active on the current date
     const vBookings = DATA.bookings.filter(b=>b.venueId===v.id && dateInBookingWindow(b, currentDate));
     // Aggregate items + dominant phase for the date
-    let itemsHtml = '';
-    let phaseChips = '';
-    let totalTypes = 0;
+    const phaseSet = new Set();
     vBookings.forEach(b=>{
       const phase = bookingPhaseOn(b, currentDate);
-      phaseChips += phaseBadge(phase);
+      if(phase) phaseSet.add(phase);
+    });
+    const phaseChips = [...phaseSet].map(p=>phaseBadge(p)).join('');
+    let itemsHtml = '';
+    let totalTypes = 0;
+    // Merge items from all bookings for this venue, sum quantities, then sort alphabetically
+    const mergedItems = {};
+    vBookings.forEach(b=>{
       Object.entries(b.items).forEach(([iid, qty])=>{
-      const dcId = `dc_rm_${b.id}_${iid}`;
+        if(!mergedItems[iid]) mergedItems[iid] = {qty:0, name:''};
         const info = findItem(iid);
-        const nm = info ? info.item.name : iid;
-        totalTypes++;
-        itemsHtml += `<div class="item-row"><span>${esc(nm)}</span>
-          <span><span class="qty">${qty}</span>
-          <span class="del" onclick="showDel('${dcId}')">×</span></span></div>
-          <div class="del-confirm" id="${dcId}" style="margin:2px 0 4px;">
-            <span>Remove ${esc(nm)}?</span>
-            <div class="del-confirm-btns">
-              <button class="dc-yes" onclick="removeItemFromBooking('${b.id}','${iid}')">Remove</button>
-              <button class="dc-no" onclick="hideDel('${dcId}')">Keep</button>
-            </div>
-          </div>`;
+        mergedItems[iid].name = info ? info.item.name : iid;
+        mergedItems[iid].qty += qty;
       });
     });
+    const sortedItems = Object.entries(mergedItems).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+    sortedItems.forEach(([iid, d])=>{
+      totalTypes++;
+      itemsHtml += `<div class="item-row"><span>${esc(d.name)}</span>
+        <span class="qty">${d.qty}</span></div>`;
+    });
 
+    const hasBooking = vBookings.length > 0;
+    const btnLabel = hasBooking ? '✎ Edit' : '+ Add';
+    const clientNames = [...new Set(vBookings.map(b=>b.clientName).filter(Boolean))].join(', ');
     const isMin = (VENUE_MIN_STATE[v.id] === true);
     html += `<div class="venue-card">
       <div class="venue-head" onclick="toggleVenueMin('${v.id}')" style="cursor:pointer;">
         <div style="flex:1;min-width:0;">
           <div class="venue-name">${esc(v.name)}</div>
-          <div class="venue-meta">${totalTypes} item type${totalTypes!==1?'s':''} · ${vBookings.length} booking${vBookings.length!==1?'s':''}</div>
+          ${clientNames ? `<div style="font-size:11px;color:var(--amber);font-weight:600;margin-top:1px;">${esc(clientNames)}</div>` : ''}
+          <div class="venue-meta">${totalTypes} item type${totalTypes!==1?'s':''}</div>
           ${isMin && phaseChips ? `<div class="booking-phases" style="margin-top:4px;">${phaseChips}</div>` : ''}
         </div>
         <div class="venue-head-actions" onclick="event.stopPropagation()">
           <span class="venue-min-btn${isMin?' minimized':''}" onclick="toggleVenueMin('${v.id}')">▾</span>
           <span class="icon-btn edit-ic" onclick="openEditVenue('${v.id}')">✎</span>
-          <button class="add-btn" onclick="openAddAssignment('${v.id}')">+ Add</button>
+          <button class="add-btn" onclick="openAddAssignment('${v.id}')">${btnLabel}</button>
         </div>
       </div>
       <div class="venue-body${isMin?' minimized':''}">
@@ -839,18 +946,11 @@ function renderAssign(){
         <div class="venue-items">
           ${itemsHtml || '<div class="empty-venue">Nothing booked on this date.</div>'}
         </div>
+        ${hasBooking ? `<div style="padding:0 10px 10px;"><button onclick="openCopyBooking('${v.id}')" style="font-size:11px;color:var(--blue);background:none;border:none;padding:0;cursor:pointer;font-weight:600;">📋 Copy to another date</button></div>` : ''}
       </div>
     </div>`;
   });
   html += '</div>';
-
-  // Upcoming bookings (window starts after current date)
-  const upcoming = DATA.bookings.filter(b=>bookingWindow(b).from > currentDate)
-    .sort((a,b)=>bookingWindow(a).from.localeCompare(bookingWindow(b).from));
-  if(upcoming.length){
-    html += '<div class="section-label">Upcoming Bookings</div>';
-    upcoming.forEach(b=>{ html += bookingCard(b, null); });
-  }
   main.innerHTML = html;
 }
 
@@ -936,6 +1036,22 @@ function removeAssignment(venueId, itemId){
 function openAddAssignment(preselectVenueId){
   if(DATA.venues.length===0){ toast('Add a venue first'); return; }
   assignPickerQtys = {};
+
+  // Pre-fill client name from existing booking
+  if(preselectVenueId){
+    const existing = DATA.bookings.find(b=>
+      b.venueId===preselectVenueId && dateInBookingWindow(b, currentDate)
+    );
+    if(existing){
+      Object.entries(existing.items).forEach(([iid,qty])=>{ assignPickerQtys[iid]=qty; });
+      document.getElementById('pickerClientName').value = existing.clientName || '';
+    } else {
+      document.getElementById('pickerClientName').value = '';
+    }
+  } else {
+    document.getElementById('pickerClientName').value = '';
+  }
+
   ['outFrom','outTo','backFrom','backTo'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('evFrom').value = currentDate;
   document.getElementById('evTo').value = currentDate;
@@ -970,6 +1086,12 @@ function openAddAssignment(preselectVenueId){
     html += `</div>`;
   });
   body.innerHTML = html;
+
+  // Pre-fill stepper display values from assignPickerQtys
+  Object.entries(assignPickerQtys).forEach(([iid,qty])=>{
+    const el = document.getElementById('val_'+iid);
+    if(el && qty>0){ el.textContent=qty; }
+  });
 
   // Add new venue inline at top of venue select
   const venueAddEl = document.getElementById('pickerAddVenue');
@@ -1087,7 +1209,7 @@ function getPickerDates(){
   const evTo = document.getElementById('evTo').value;
   const backFrom = document.getElementById('backFrom').value;
   const backTo = document.getElementById('backTo').value;
-  if(!evFrom || !evTo) return [];
+  if(!evFrom || !evTo) return [currentDate]; // fallback to today
   const from = outFrom || evFrom;
   const to = backTo || evTo;
   return dateListBetween(from, to);
@@ -1102,23 +1224,56 @@ function getPickerPhases(){
 }
 
 function renderPickerItems(){
+  const venueId = document.getElementById('pickerVenueSelect').value;
   const dates = getPickerDates();
   DATA.categories.forEach(c=>c.items.forEach(it=>{
-    const av = dates.length ? availableQtyAcrossDates(it.id, dates, null) : it.totalQty;
+    // Exclude this venue's own existing booking from availability check
+    const existingBkId = (DATA.bookings.find(b=>b.venueId===venueId && dates.some(d=>dateInBookingWindow(b,d)))||{}).id;
+    let av;
+    if(dates.length){
+      let min=Infinity;
+      dates.forEach(d=>{
+        const othersUsing = assignedQtyForItemExcludingBooking(it.id, d, existingBkId||'__none__');
+        const info2=findItem(it.id);
+        const rep=info2?(info2.item.repairQty||0):0;
+        const total=info2?info2.item.totalQty:0;
+        const a=total-rep-othersUsing;
+        if(a<min) min=a;
+      });
+      av=min===Infinity?0:min;
+    } else {
+      av=availableQty(it.id, currentDate, null);
+    }
     const avEl = document.getElementById('av_'+it.id);
-    if(avEl) avEl.textContent = 'Available: ' + av + ' / ' + it.totalQty + (dates.length>1 ? ' (whole window)' : '');
-    if((assignPickerQtys[it.id]||0) > av){
-      assignPickerQtys[it.id] = 0;
+    if(avEl) avEl.textContent = 'Available: ' + av + ' / ' + it.totalQty + (dates.length>1?' (whole window)':'');
+    // Only cap if the chosen qty exceeds availability AND it's a new addition (not pre-filled from existing booking)
+    const existingBk = DATA.bookings.find(b=>b.venueId===venueId && dates.some(d=>dateInBookingWindow(b,d)));
+    const ownQty = (existingBk && existingBk.items[it.id]) ? existingBk.items[it.id] : 0;
+    const maxAllowed = av + ownQty; // can keep own qty plus whatever else is free
+    if((assignPickerQtys[it.id]||0) > maxAllowed){
+      assignPickerQtys[it.id] = maxAllowed;
       const valEl = document.getElementById('val_'+it.id);
-      if(valEl) valEl.textContent = 0;
+      if(valEl) valEl.textContent = maxAllowed;
     }
   }));
+  updateCatCounts();
 }
 
 function stepQty(itemId, delta){
   const dates = getPickerDates();
   if(dates.length===0){ toast('Set event dates first'); return; }
-  const av = availableQtyAcrossDates(itemId, dates, null);
+  const venueId = document.getElementById('pickerVenueSelect').value;
+  const existingBkId = (DATA.bookings.find(b=>b.venueId===venueId && dates.some(d=>dateInBookingWindow(b,d)))||{}).id;
+  let minAv = Infinity;
+  dates.forEach(d=>{
+    const others = assignedQtyForItemExcludingBooking(itemId, d, existingBkId||'__none__');
+    const info = findItem(itemId);
+    const rep = info?(info.item.repairQty||0):0;
+    const total = info?info.item.totalQty:0;
+    const a = total - rep - others;
+    if(a < minAv) minAv = a;
+  });
+  const av = minAv === Infinity ? 0 : minAv;
   const current = assignPickerQtys[itemId] || 0;
   let next = current + delta;
   if(next < 0) next = 0;
@@ -1167,9 +1322,25 @@ function confirmAssignment(){
 
   const items = {};
   chosen.forEach(([itemId, qty])=>items[itemId]=qty);
+  const clientName = document.getElementById('pickerClientName').value.trim();
+
+  // One booking per venue — merge into existing if found
+  const existingBooking = DATA.bookings.find(b=>
+    b.venueId===venueId && dates.some(d=>dateInBookingWindow(b,d))
+  );
+  if(existingBooking){
+    Object.entries(items).forEach(([iid,qty])=>{ existingBooking.items[iid]=qty; });
+    Object.keys(existingBooking.items).forEach(iid=>{ if(!existingBooking.items[iid]) delete existingBooking.items[iid]; });
+    if(clientName) existingBooking.clientName = clientName;
+    saveData(); closeAllSheets(); render();
+    toast('Booking updated');
+    return;
+  }
+
   DATA.bookings.push({
     id: uid('bk'),
     venueId,
+    clientName,
     transitOut: phases.transitOut,
     event: phases.event,
     transitBack: phases.transitBack,
@@ -1247,47 +1418,58 @@ function toggleWhereInline(itemId){
   const el = document.getElementById('wi_'+itemId);
   if(!el) return;
   if(el.classList.contains('open')){ el.classList.remove('open'); return; }
-  // Build content
   const info = findItem(itemId);
   if(!info) return;
   const it = info.item;
-  let rows = '';
+  let cards = '';
   let outTotal = 0;
-
+  const venueMap = {};
   DATA.bookings.forEach(b=>{
-    if(!b.items[itemId]) return;
-    if(!dateInBookingWindow(b, currentDate)) return;
+    if(!b.items[itemId]||!dateInBookingWindow(b,currentDate)) return;
     const qty = b.items[itemId];
     outTotal += qty;
     const v = DATA.venues.find(v=>v.id===b.venueId);
-    const vName = v ? v.name : '(deleted)';
-    const phase = bookingPhaseOn(b, currentDate);
-    const phaseTxt = phase==='out'?'🚚 In transit — going':phase==='back'?'🚚 In transit — returning':phase==='event'?'🎪 At event':'Scheduled';
-    rows += `<div class="wi-row">
-      <div class="wi-left"><span class="wi-venue">${esc(vName)}</span><span class="wi-phase">${phaseTxt}</span></div>
-      <span class="wi-qty">${qty}</span>
+    const vName = v?v.name:'(deleted)';
+    const phase = bookingPhaseOn(b,currentDate);
+    const returnDate = (b.transitBack&&b.transitBack.to)?b.transitBack.to:b.event.to;
+    let icon,arrow,phaseTxt;
+    if(phase==='out'){icon='🚚';arrow='→';phaseTxt='In Transit — Going';}
+    else if(phase==='back'){icon='🚚';arrow='←';phaseTxt='In Transit — Returning';}
+    else if(phase==='event'){icon='🎪';arrow='';phaseTxt='At Event';}
+    else{icon='📅';arrow='';phaseTxt='Scheduled';}
+    if(!venueMap[b.venueId]) venueMap[b.venueId]={vName,qty:0,icon,arrow,phaseTxt,returnDate};
+    venueMap[b.venueId].qty+=qty;
+  });
+  Object.values(venueMap).forEach(d=>{
+    cards+=`<div class="dep-card">
+      <div class="dep-icon">${d.icon}<span class="arrow">${d.arrow}</span></div>
+      <div class="dep-body">
+        <div class="dep-venue">${esc(d.vName)}</div>
+        <div class="dep-phase">${d.phaseTxt}</div>
+        <div class="dep-return">Returns: ${fmtDate(d.returnDate)}</div>
+      </div>
+      <div class="dep-qty">${d.qty}</div>
     </div>`;
   });
-
-  // Legacy dlog
   const dl = DATA.dlog[currentDate];
-  if(dl){ for(const vId in dl.venues){
-    const q = dl.venues[vId][itemId]; if(!q) continue;
-    outTotal += q;
-    const v = DATA.venues.find(v=>v.id===vId);
-    rows += `<div class="wi-row">
-      <div class="wi-left"><span class="wi-venue">${esc(v?v.name:'(deleted)')}</span><span class="wi-phase">🎪 Assigned</span></div>
-      <span class="wi-qty">${q}</span>
-    </div>`;
+  if(dl){for(const vId in dl.venues){
+    const q=dl.venues[vId][itemId];if(!q)continue;
+    outTotal+=q;
+    const v=DATA.venues.find(v=>v.id===vId);
+    cards+=`<div class="dep-card"><div class="dep-icon">🎪<span class="arrow"></span></div>
+      <div class="dep-body"><div class="dep-venue">${esc(v?v.name:'(deleted)')}</div><div class="dep-phase">At Event</div></div>
+      <div class="dep-qty">${q}</div></div>`;
   }}
-
-  const rep = it.repairQty||0;
-  if(rep) rows += `<div class="wi-row"><div class="wi-left"><span class="wi-venue">Repair / Damaged</span><span class="wi-phase">🔧 Out of service</span></div><span class="wi-qty">${rep}</span></div>`;
-  const inStock = it.totalQty - rep - outTotal;
-  rows += `<div class="wi-row"><div class="wi-left"><span class="wi-venue">Godown</span><span class="wi-phase">🏠 In stock</span></div><span class="wi-qty">${inStock}</span></div>`;
-  rows += `<div class="wi-total"><span>Total Owned</span><span>${it.totalQty}</span></div>`;
-
-  el.innerHTML = rows || '<div style="color:var(--sub);font-size:12px;">No data</div>';
+  const rep=it.repairQty||0;
+  if(rep) cards+=`<div class="dep-card"><div class="dep-icon">🔧<span class="arrow"></span></div>
+    <div class="dep-body"><div class="dep-venue">Repair / Damaged</div><div class="dep-phase">Out of service</div></div>
+    <div class="dep-qty">${rep}</div></div>`;
+  const inStock=it.totalQty-rep-outTotal;
+  cards+=`<div class="dep-card" style="background:var(--amber-dim);">
+    <div class="dep-icon">🏠<span class="arrow"></span></div>
+    <div class="dep-body"><div class="dep-venue">Godown</div><div class="dep-phase">In stock — available</div></div>
+    <div class="dep-qty" style="color:var(--green);">${inStock}</div></div>`;
+  el.innerHTML=cards;
   el.classList.add('open');
 }
 
@@ -1358,20 +1540,90 @@ function saveItem(){
   render();
   toast('Item saved');
 }
+let copySourceVenueId = null;
+
+function openCopyBooking(venueId){
+  copySourceVenueId = venueId;
+  const b = DATA.bookings.find(b=>b.venueId===venueId && dateInBookingWindow(b,currentDate));
+  if(!b){ toast('No booking to copy'); return; }
+  const v = DATA.venues.find(v=>v.id===venueId);
+  const info = document.getElementById('copyBookingInfo');
+  info.innerHTML = `<strong>${v?v.name:''}</strong>${b.clientName?' — '+esc(b.clientName):''}<br>
+    <span style="color:var(--sub);font-size:11.5px;">${Object.keys(b.items).length} item types · ${fmtDate(bookingWindow(b).from)} → ${fmtDate(bookingWindow(b).to)}</span>`;
+  ['copyOutFrom','copyOutTo','copyEvFrom','copyEvTo','copyBackFrom','copyBackTo'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('copyClientName').value = b.clientName||'';
+  document.getElementById('copyConflictArea').innerHTML='';
+  openSheet('copyBookingSheet');
+}
+
+function confirmCopyBooking(){
+  const b = DATA.bookings.find(b=>b.venueId===copySourceVenueId && dateInBookingWindow(b,currentDate));
+  if(!b){ toast('Source booking not found'); return; }
+  const g = id=>document.getElementById(id).value||null;
+  const evFrom = g('copyEvFrom'), evTo = g('copyEvTo');
+  if(!evFrom||!evTo){ toast('Set event dates'); return; }
+  const transitOut = (g('copyOutFrom')&&g('copyOutTo'))?{from:g('copyOutFrom'),to:g('copyOutTo')}:null;
+  const event = {from:evFrom,to:evTo};
+  const transitBack = (g('copyBackFrom')&&g('copyBackTo'))?{from:g('copyBackFrom'),to:g('copyBackTo')}:null;
+  const from = (transitOut&&transitOut.from)||evFrom;
+  const to = (transitBack&&transitBack.to)||evTo;
+  const dates = dateListBetween(from,to);
+  const clientName = document.getElementById('copyClientName').value.trim();
+
+  // Conflict check
+  const conflicts = [];
+  Object.entries(b.items).forEach(([itemId,qty])=>{
+    const info = findItem(itemId);
+    const nm = info?info.item.name:itemId;
+    dates.forEach(d=>{
+      const av = availableQty(itemId,d,null);
+      if(qty>av) conflicts.push({date:d,name:nm,requested:qty,available:av});
+    });
+  });
+  if(conflicts.length){
+    const area = document.getElementById('copyConflictArea');
+    let list = conflicts.slice(0,6).map(c=>`<li>${esc(c.name)} — ${fmtDate(c.date)}: need ${c.requested}, only ${c.available} free</li>`).join('');
+    area.innerHTML=`<div class="conflict-box">Conflicts found — not copied.<ul class="conflict-list">${list}</ul></div>`;
+    toast('Conflicts — not copied'); return;
+  }
+
+  // One booking per venue — merge into existing if target has a booking
+  const existingAtTarget = DATA.bookings.find(bk=>
+    bk.venueId===copySourceVenueId && bk.id!==b.id && dates.some(d=>dateInBookingWindow(bk,d))
+  );
+  if(existingAtTarget){
+    Object.entries(b.items).forEach(([iid,qty])=>{ existingAtTarget.items[iid]=qty; });
+    if(clientName) existingAtTarget.clientName = clientName;
+    saveData(); closeAllSheets(); render();
+    toast('Merged into existing booking ✓');
+    return;
+  }
+
+  DATA.bookings.push({
+    id:uid('bk'), venueId:copySourceVenueId, clientName,
+    transitOut, event, transitBack, items:{...b.items}
+  });
+  saveData(); closeAllSheets(); render();
+  toast('Booking copied ✓');
+}
+
 function openAddStock(itemId){ showDel('stock_'+itemId); setTimeout(()=>{ const el=document.getElementById('stockQty_'+itemId); if(el){el.value='';el.focus();} },50); }
 function confirmAddStock(itemId){
   const qty = parseInt(document.getElementById('stockQty_'+itemId).value,10);
-  if(isNaN(qty)||qty<1){ toast('Enter valid quantity'); return; }
+  if(isNaN(qty)||qty<1){ toast('Enter a valid quantity (min 1)'); return; }
   const info = findItem(itemId);
   if(!info){ toast('Item not found'); return; }
   info.item.totalQty += qty;
+  if(info.item.totalQty < 0) info.item.totalQty = 0;
   saveData();
   hideDel('stock_'+itemId);
   render();
-  toast(`+${qty} added to ${info.item.name}`);
+  toast(`+${qty} added to ${info.item.name} (total: ${info.item.totalQty})`);
 }
 
 function showItemSheetDel(){ showDel('dc_itemsheet'); }
+function showDel(id){ const el=document.getElementById(id); if(el) el.classList.add('show'); }
+function hideDel(id){ const el=document.getElementById(id); if(el) el.classList.remove('show'); }
 
 function deleteItem(itemId){
   const info = findItem(itemId);
@@ -1445,6 +1697,62 @@ function openWhereIsIt(itemId){
 }
 
 /* ---------------- VENUES TAB ---------------- */
+function cleanupDuplicateBookings(){
+  let mergeCount = 0;
+  const toDelete = new Set();
+  // Group bookings by venueId
+  const byVenue = {};
+  DATA.bookings.forEach(b=>{ if(!byVenue[b.venueId]) byVenue[b.venueId]=[]; byVenue[b.venueId].push(b); });
+  Object.entries(byVenue).forEach(([vid, bks])=>{
+    if(bks.length <= 1) return;
+    // Sort by event from date
+    bks.sort((a,b)=>a.event.from.localeCompare(b.event.from));
+    // Keep first, merge rest into it
+    const keeper = bks[0];
+    for(let i=1;i<bks.length;i++){
+      const b = bks[i];
+      // Merge items — take max qty per item
+      Object.entries(b.items).forEach(([iid,qty])=>{
+        if(!keeper.items[iid] || qty > keeper.items[iid]) keeper.items[iid]=qty;
+      });
+      // Extend date window if needed
+      const bFrom = (b.transitOut&&b.transitOut.from)||b.event.from;
+      const bTo = (b.transitBack&&b.transitBack.to)||b.event.to;
+      const kFrom = (keeper.transitOut&&keeper.transitOut.from)||keeper.event.from;
+      const kTo = (keeper.transitBack&&keeper.transitBack.to)||keeper.event.to;
+      if(bFrom < kFrom){ if(b.transitOut) keeper.transitOut=b.transitOut; else keeper.event.from=bFrom; }
+      if(bTo > kTo){ if(b.transitBack) keeper.transitBack=b.transitBack; else keeper.event.to=bTo; }
+      toDelete.add(b.id);
+      mergeCount++;
+    }
+  });
+  if(mergeCount===0){ toast('No duplicates found ✓'); return; }
+  DATA.bookings = DATA.bookings.filter(b=>!toDelete.has(b.id));
+  saveData();
+  render();
+  toast(`Merged ${mergeCount} duplicate booking${mergeCount!==1?'s':''} ✓`);
+}
+
+async function restoreInventoryNow(){
+  const fresh = seedData();
+  // Keep existing venues and bookings if any
+  fresh.venues = (DATA && DATA.venues && DATA.venues.length) ? DATA.venues : [];
+  fresh.bookings = (DATA && DATA.bookings) ? DATA.bookings : [];
+  fresh.dlog = (DATA && DATA.dlog) ? DATA.dlog : {};
+  DATA = fresh;
+  setSaveInd('Restoring…', 'var(--amber)');
+  try{
+    await DOC_REF.set(DATA);
+    setSaveInd('Restored ✓', 'var(--green)');
+    setTimeout(()=>setSaveInd(''), 2000);
+    render();
+    toast('Inventory restored! Go to Inventory tab to verify.');
+  }catch(e){
+    setSaveInd('','');
+    showNetworkError();
+  }
+}
+
 function renderVenues(){
   const main = document.getElementById('mainArea');
   let html = '<div class="section-label">Venues</div>';
@@ -1462,7 +1770,7 @@ function renderVenues(){
         </div>
       </div>
       <div class="del-confirm" id="dc_vtab_${v.id}" style="margin:0 10px 10px;">
-        <span>Delete ${esc(v.name)}?</span>
+        <span>Delete ${esc(v.name)} and free its inventory?</span>
         <div class="del-confirm-btns">
           <button class="dc-yes" onclick="deleteVenue('${v.id}')">Delete</button>
           <button class="dc-no" onclick="hideDel('dc_vtab_${v.id}')">Cancel</button>
@@ -1512,12 +1820,12 @@ function saveVenue(){
   render();
 }
 function deleteVenue(id){
-  // Note: past assignment history in dlog is kept intact for old dates.
-  // Venue is only removed from the active venue list going forward.
+  // Also cancel all bookings for this venue to free the stock
+  DATA.bookings = DATA.bookings.filter(b=>b.venueId!==id);
   DATA.venues = DATA.venues.filter(v=>v.id!==id);
   saveData();
   render();
-  toast('Venue removed (history kept)');
+  toast('Venue and its bookings removed');
 }
 function deleteVenueFromSheet(){
   if(!editingVenueId) return;
@@ -1603,37 +1911,6 @@ function renderSummary(){
     main.innerHTML = html; return;
   }
 
-  function summaryVenueBlock(entry){
-    const {vid, vName, items, phases, returnDate} = entry;
-    const isMin = SUMMARY_MIN[vid]===true;
-    const phaseArr = [...phases];
-    const phaseLine = phaseArr.map(p=>phaseBadge(p)).join('');
-    const itemCount = Object.values(items).reduce((s,i)=>s+i.qty,0);
-    let itemRows = Object.values(items).map(i=>
-      `<div class="summary-stat" style="margin-bottom:6px;">
-        <span class="ss-name">${esc(i.name)}</span>
-        <span class="ss-qty">${i.qty}</span>
-      </div>`
-    ).join('');
-    return `<div class="venue-card" style="margin-bottom:8px;">
-      <div class="venue-head" onclick="toggleSummaryMin('${vid}')" style="cursor:pointer;">
-        <div style="flex:1;min-width:0;">
-          <div class="venue-name">${esc(vName)}</div>
-          <div class="venue-meta">${itemCount} units · Returns ${returnDate?fmtDate(returnDate):'—'}</div>
-          ${isMin ? `<div class="booking-phases" style="margin-top:4px;">${phaseLine}</div>` : ''}
-        </div>
-        <div class="venue-head-actions" onclick="event.stopPropagation()">
-          <span class="venue-min-btn${isMin?' minimized':''}">▾</span>
-          <button class="add-btn" style="background:var(--blue);color:#fff;" onclick="makeSummaryPDF('${vid}')">📄 PDF</button>
-        </div>
-      </div>
-      <div class="venue-body${isMin?' minimized':''}">
-        <div class="booking-phases" style="padding:0 10px 8px;">${phaseLine}</div>
-        <div style="padding:0 10px 10px;">${itemRows}</div>
-      </div>
-    </div>`;
-  }
-
   if(dispatchToday.length){
     html += `<div class="section-label">🚚 Dispatching Today</div>`;
     dispatchToday.forEach(e=>{ html += summaryVenueBlock(e); });
@@ -1646,6 +1923,37 @@ function renderSummary(){
 }
 
 function toggleSummaryMin(vid){
+
+function summaryVenueBlock(entry){
+  const {vid, vName, items, phases, returnDate} = entry;
+  const isMin = SUMMARY_MIN[vid]===true;
+  const phaseArr = [...phases];
+  const phaseLine = phaseArr.map(p=>phaseBadge(p)).join('');
+  const itemCount = Object.values(items).reduce((s,i)=>s+i.qty,0);
+  let itemRows = Object.values(items).map(i=>
+    `<div class="summary-stat" style="margin-bottom:6px;">
+      <span class="ss-name">${esc(i.name)}</span>
+      <span class="ss-qty">${i.qty}</span>
+    </div>`
+  ).join('');
+  return `<div class="venue-card" style="margin-bottom:8px;">
+    <div class="venue-head" onclick="toggleSummaryMin('${vid}')" style="cursor:pointer;">
+      <div style="flex:1;min-width:0;">
+        <div class="venue-name">${esc(vName)}</div>
+        <div class="venue-meta">${itemCount} units · Returns ${returnDate?fmtDate(returnDate):'—'}</div>
+        ${isMin ? `<div class="booking-phases" style="margin-top:4px;">${phaseLine}</div>` : ''}
+      </div>
+      <div class="venue-head-actions" onclick="event.stopPropagation()">
+        <span class="venue-min-btn${isMin?' minimized':''}">▾</span>
+        <button class="add-btn" style="background:var(--blue);color:#fff;" onclick="makeSummaryPDF('${vid}')">📄 PDF</button>
+      </div>
+    </div>
+    <div class="venue-body${isMin?' minimized':''}">
+      <div class="booking-phases" style="padding:0 10px 8px;">${phaseLine}</div>
+      <div style="padding:0 10px 10px;">${itemRows}</div>
+    </div>
+  </div>`;
+}
   SUMMARY_MIN[vid] = !SUMMARY_MIN[vid];
   renderSummary();
 }
@@ -1732,7 +2040,7 @@ function openEditBooking(bookingId){
   g('editBackFrom', b.transitBack&&b.transitBack.from);
   g('editBackTo', b.transitBack&&b.transitBack.to);
 
-  document.getElementById('editConflictArea').innerHTML = '';
+  document.getElementById('editClientName').value = b.clientName||'';
   renderEditItems();
   openSheet('editBookingSheet');
 }
@@ -1832,6 +2140,7 @@ function saveBookingEdit(){
   b.event = event;
   b.transitBack = transitBack;
   b.items = newItems;
+  b.clientName = document.getElementById('editClientName').value.trim() || b.clientName || '';
   saveData();
   closeAllSheets();
   render();
