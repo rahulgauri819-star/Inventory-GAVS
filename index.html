@@ -335,6 +335,16 @@
   <div class="sheet-head"><h3>New Booking</h3><span class="close" onclick="closeAllSheets()">×</span></div>
   <div class="sheet-body">
     <div class="field"><label>Venue</label><select id="pickerVenueSelect" onchange="renderPickerItems()"></select></div>
+    <div id="pickerAddVenue" style="text-align:right;margin:-8px 0 8px;">
+      <span onclick="openPickerAddVenue()" style="color:var(--amber);font-size:12px;font-weight:600;cursor:pointer;">+ Add New Venue</span>
+    </div>
+    <div id="pickerNewVenueBox" style="display:none;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+      <div style="font-size:11px;color:var(--sub);margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px;">New Venue Name</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="pickerNewVenueName" placeholder="e.g. Taj Palace" style="flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:7px;font-size:13.5px;">
+        <button onclick="savePickerNewVenue()" style="background:var(--amber);color:#211500;border:none;border-radius:7px;padding:8px 12px;font-weight:700;font-size:12px;">Add</button>
+      </div>
+    </div>
 
     <div class="phase-range-block prb-out">
       <div class="prb-title"><span>🚚</span> Transit Out (optional)</div>
@@ -815,6 +825,7 @@ function renderAssign(){
         <div style="flex:1;min-width:0;">
           <div class="venue-name">${esc(v.name)}</div>
           <div class="venue-meta">${totalTypes} item type${totalTypes!==1?'s':''} · ${vBookings.length} booking${vBookings.length!==1?'s':''}</div>
+          ${isMin && phaseChips ? `<div class="booking-phases" style="margin-top:4px;">${phaseChips}</div>` : ''}
         </div>
         <div class="venue-head-actions" onclick="event.stopPropagation()">
           <span class="venue-min-btn${isMin?' minimized':''}" onclick="toggleVenueMin('${v.id}')">▾</span>
@@ -946,19 +957,82 @@ function openAddAssignment(preselectVenueId){
     <div class="pick-group" id="pg_${c.id}">`;
     c.items.forEach(it=>{
       html += `<div class="pick-row" data-item="${it.id}">
-        <div class="pick-nm">${esc(it.name)}<span class="av" id="av_${it.id}"></span></div>
+        <div class="pick-nm" onclick="togglePickerWhere('${it.id}')" style="cursor:pointer;">${esc(it.name)}<span class="av" id="av_${it.id}"></span></div>
         <div class="stepper">
           <button onclick="stepQty('${it.id}',-1)">−</button>
           <span class="val" id="val_${it.id}">0</span>
           <button onclick="stepQty('${it.id}',1)">+</button>
         </div>
-      </div>`;
+      </div>
+      <div class="where-inline" id="pwi_${it.id}"></div>`;
     });
     html += `</div>`;
   });
   body.innerHTML = html;
+
+  // Add new venue inline at top of venue select
+  const venueAddEl = document.getElementById('pickerAddVenue');
+  if(venueAddEl) venueAddEl.style.display = '';
+
   openSheet('assignSheet');
   renderPickerItems();
+}
+
+function openPickerAddVenue(){
+  const box = document.getElementById('pickerNewVenueBox');
+  box.style.display = box.style.display==='none' ? 'block' : 'none';
+  if(box.style.display==='block') document.getElementById('pickerNewVenueName').focus();
+}
+
+function savePickerNewVenue(){
+  const name = document.getElementById('pickerNewVenueName').value.trim();
+  if(!name){ toast('Enter venue name'); return; }
+  const newV = {id: uid('v'), name};
+  DATA.venues.push(newV);
+  saveData();
+  // Refresh select and pick new venue
+  const sel = document.getElementById('pickerVenueSelect');
+  sel.innerHTML = DATA.venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
+  sel.value = newV.id;
+  document.getElementById('pickerNewVenueBox').style.display = 'none';
+  document.getElementById('pickerNewVenueName').value = '';
+  toast('Venue added');
+  renderPickerItems();
+}
+
+function togglePickerWhere(itemId){
+  const el = document.getElementById('pwi_'+itemId);
+  if(!el) return;
+  if(el.classList.contains('open')){ el.classList.remove('open'); return; }
+  const info = findItem(itemId);
+  if(!info) return;
+  const dates = getPickerDates();
+  let rows = '';
+  // Find all bookings that overlap with picker dates and have this item
+  DATA.bookings.forEach(b=>{
+    if(!b.items[itemId]) return;
+    const w = bookingWindow(b);
+    // Check if booking overlaps with any picker date
+    const overlaps = dates.length ? dates.some(d=>dateInBookingWindow(b,d)) : dateInBookingWindow(b, currentDate);
+    if(!overlaps) return;
+    const v = DATA.venues.find(v=>v.id===b.venueId);
+    const vName = v ? v.name : '(deleted)';
+    const returnDate = (b.transitBack && b.transitBack.to) ? b.transitBack.to : b.event.to;
+    // Get phase for first overlapping date
+    const checkDate = dates.length ? dates.find(d=>dateInBookingWindow(b,d)) : currentDate;
+    const phase = bookingPhaseOn(b, checkDate||currentDate);
+    const phaseTxt = phase==='out'?'🚚 In Transit — Going':phase==='back'?'🚚 In Transit — Returning':phase==='event'?'🎪 At Event':'📅 Scheduled';
+    rows += `<div class="wi-row">
+      <div class="wi-left">
+        <span class="wi-venue">${esc(vName)}</span>
+        <span class="wi-phase">${phaseTxt} · Returns ${fmtDate(returnDate)}</span>
+      </div>
+      <span class="wi-qty">${b.items[itemId]}</span>
+    </div>`;
+  });
+  if(!rows) rows = `<div style="color:var(--sub);font-size:12px;padding:4px 0;">All in godown — none deployed</div>`;
+  el.innerHTML = rows;
+  el.classList.add('open');
 }
 
 function togglePickCat(catId){
@@ -1067,13 +1141,13 @@ function confirmAssignment(){
   const dates = getPickerDates();
   if(dates.length===0){ toast('Invalid dates'); return; }
 
-  // Full-window conflict check — block entirely on any conflict (Option A)
+  // Full-window conflict check — only blocks if total stock exceeded across ALL bookings
   const conflicts = [];
   chosen.forEach(([itemId, qty])=>{
     const info = findItem(itemId);
     const nm = info ? info.item.name : itemId;
     dates.forEach(d=>{
-      const av = availableQty(itemId, d, null);
+      const av = availableQty(itemId, d, null); // null = no venue exclusion
       if(qty > av) conflicts.push({date:d, name:nm, requested:qty, available:av});
     });
   });
@@ -1135,6 +1209,7 @@ function renderInventory(){
           <span class="stat">
             <span class="avail-bar"><span class="fill ${cls}" style="width:${pct}%"></span></span>
             <span class="avail-text">${av}/${it.totalQty}</span>
+            <span class="edit" onclick="openAddStock('${it.id}')" title="Add stock" style="color:var(--green);font-size:16px;font-weight:700;">+</span>
             <span class="edit" onclick="openEditItem('${c.id}','${it.id}')">✎</span>
           </span>
         </div>
@@ -1144,6 +1219,15 @@ function renderInventory(){
           <div class="del-confirm-btns">
             <button class="dc-yes" onclick="deleteItem('${it.id}')">Delete</button>
             <button class="dc-no" onclick="hideDel('dc_inv_${it.id}')">Cancel</button>
+          </div>
+        </div>
+        <div class="del-confirm" id="stock_${it.id}" style="background:rgba(95,208,138,0.08);border-color:#1f4a2e;">
+          <span style="color:var(--green);">Add how many units?</span>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:6px;width:100%;">
+            <input type="number" id="stockQty_${it.id}" placeholder="qty" min="1"
+              style="flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:6px 8px;border-radius:6px;font-size:13px;">
+            <button class="dc-yes" style="background:var(--green);color:#0d1117;" onclick="confirmAddStock('${it.id}')">Add</button>
+            <button class="dc-no" onclick="hideDel('stock_${it.id}')">Cancel</button>
           </div>
         </div>
       </div>`;
@@ -1273,6 +1357,19 @@ function saveItem(){
   render();
   toast('Item saved');
 }
+function openAddStock(itemId){ showDel('stock_'+itemId); setTimeout(()=>{ const el=document.getElementById('stockQty_'+itemId); if(el){el.value='';el.focus();} },50); }
+function confirmAddStock(itemId){
+  const qty = parseInt(document.getElementById('stockQty_'+itemId).value,10);
+  if(isNaN(qty)||qty<1){ toast('Enter valid quantity'); return; }
+  const info = findItem(itemId);
+  if(!info){ toast('Item not found'); return; }
+  info.item.totalQty += qty;
+  saveData();
+  hideDel('stock_'+itemId);
+  render();
+  toast(`+${qty} added to ${info.item.name}`);
+}
+
 function showItemSheetDel(){ showDel('dc_itemsheet'); }
 
 function deleteItem(itemId){
@@ -1464,64 +1561,151 @@ function esc(s){
 }
 
 /* ---------------- SUMMARY TAB ---------------- */
+const SUMMARY_MIN = {};
+
 function renderSummary(){
   const main = document.getElementById('mainArea');
-  // Collect all items going out today across all venues
-  const itemTotals = {}; // itemId -> {qty, venues:[names]}
+  // Build venue-wise map for current date
+  const venueMap = {}; // venueId -> {items:{itemId:{qty,name}}, phases:Set, returnDate}
   DATA.bookings.forEach(b=>{
     if(!dateInBookingWindow(b, currentDate)) return;
-    const v = DATA.venues.find(v=>v.id===b.venueId);
-    const vName = v ? v.name : '(deleted)';
-    Object.entries(b.items).forEach(([iid, qty])=>{
-      if(!itemTotals[iid]) itemTotals[iid] = {qty:0, venues:[]};
-      itemTotals[iid].qty += qty;
-      if(!itemTotals[iid].venues.includes(vName)) itemTotals[iid].venues.push(vName);
+    const vid = b.venueId;
+    if(!venueMap[vid]) venueMap[vid] = {items:{}, phases:new Set(), returnDate:null};
+    const phase = bookingPhaseOn(b, currentDate);
+    if(phase) venueMap[vid].phases.add(phase);
+    const ret = (b.transitBack&&b.transitBack.to)?b.transitBack.to:b.event.to;
+    if(!venueMap[vid].returnDate || ret > venueMap[vid].returnDate) venueMap[vid].returnDate = ret;
+    Object.entries(b.items).forEach(([iid,qty])=>{
+      const info = findItem(iid);
+      if(!venueMap[vid].items[iid]) venueMap[vid].items[iid] = {qty:0, name: info?info.item.name:iid};
+      venueMap[vid].items[iid].qty += qty;
     });
   });
-  // Legacy dlog
-  const dl = DATA.dlog[currentDate];
-  if(dl){ for(const vId in dl.venues){
-    const v = DATA.venues.find(v=>v.id===vId);
-    const vName = v ? v.name : '(deleted)';
-    for(const iid in dl.venues[vId]){
-      const qty = dl.venues[vId][iid]; if(!qty) continue;
-      if(!itemTotals[iid]) itemTotals[iid] = {qty:0, venues:[]};
-      itemTotals[iid].qty += qty;
-      if(!itemTotals[iid].venues.includes(vName)) itemTotals[iid].venues.push(vName);
-    }
-  }}
 
-  const totalTypes = Object.keys(itemTotals).length;
-  const activeVenues = [...new Set(Object.values(itemTotals).flatMap(x=>x.venues))].length;
+  // Separate: going out today vs already deployed
+  const dispatchToday = [], deployed = [];
+  Object.entries(venueMap).forEach(([vid, d])=>{
+    const v = DATA.venues.find(v=>v.id===vid);
+    if(!v) return;
+    if(d.phases.has('out')) dispatchToday.push({vid, vName:v.name, ...d});
+    else deployed.push({vid, vName:v.name, ...d});
+  });
 
-  let html = `<div class="section-label">Day Load Summary — ${fmtDate(currentDate)}</div>
-    <div class="summary-header">
-      <div><div class="sh-num">${totalTypes}</div><div class="sh-label">Item types out</div></div>
-      <div style="text-align:right"><div class="sh-num">${activeVenues}</div><div class="sh-label">Venues active</div></div>
-    </div>`;
+  const totalVenues = dispatchToday.length + deployed.length;
+  let html = `<div class="summary-header">
+    <div><div class="sh-num">${totalVenues}</div><div class="sh-label">Active venues</div></div>
+    <div style="text-align:right"><div class="sh-num">${dispatchToday.length}</div><div class="sh-label">Dispatching today</div></div>
+  </div>`;
 
-  if(totalTypes===0){
+  if(totalVenues===0){
     html += '<div class="empty-state">🏠 Everything in the godown today.</div>';
     main.innerHTML = html; return;
   }
 
-  // Group by category
-  DATA.categories.forEach(c=>{
-    const catItems = c.items.filter(it=>itemTotals[it.id]);
-    if(!catItems.length) return;
-    html += `<div class="section-label">${esc(c.name)}</div>`;
-    catItems.forEach(it=>{
-      const d = itemTotals[it.id];
-      html += `<div class="summary-stat">
-        <div class="ss-left">
-          <span class="ss-name">${esc(it.name)}</span>
-          <span class="ss-venues">${d.venues.map(esc).join(' · ')}</span>
+  function summaryVenueBlock(entry){
+    const {vid, vName, items, phases, returnDate} = entry;
+    const isMin = SUMMARY_MIN[vid]===true;
+    const phaseArr = [...phases];
+    const phaseLine = phaseArr.map(p=>phaseBadge(p)).join('');
+    const itemCount = Object.values(items).reduce((s,i)=>s+i.qty,0);
+    let itemRows = Object.values(items).map(i=>
+      `<div class="summary-stat" style="margin-bottom:6px;">
+        <span class="ss-name">${esc(i.name)}</span>
+        <span class="ss-qty">${i.qty}</span>
+      </div>`
+    ).join('');
+    return `<div class="venue-card" style="margin-bottom:8px;">
+      <div class="venue-head" onclick="toggleSummaryMin('${vid}')" style="cursor:pointer;">
+        <div style="flex:1;min-width:0;">
+          <div class="venue-name">${esc(vName)}</div>
+          <div class="venue-meta">${itemCount} units · Returns ${returnDate?fmtDate(returnDate):'—'}</div>
+          ${isMin ? `<div class="booking-phases" style="margin-top:4px;">${phaseLine}</div>` : ''}
         </div>
-        <span class="ss-qty">${d.qty}</span>
-      </div>`;
+        <div class="venue-head-actions" onclick="event.stopPropagation()">
+          <span class="venue-min-btn${isMin?' minimized':''}">▾</span>
+          <button class="add-btn" style="background:var(--blue);color:#fff;" onclick="makeSummaryPDF('${vid}')">📄 PDF</button>
+        </div>
+      </div>
+      <div class="venue-body${isMin?' minimized':''}">
+        <div class="booking-phases" style="padding:0 10px 8px;">${phaseLine}</div>
+        <div style="padding:0 10px 10px;">${itemRows}</div>
+      </div>
+    </div>`;
+  }
+
+  if(dispatchToday.length){
+    html += `<div class="section-label">🚚 Dispatching Today</div>`;
+    dispatchToday.forEach(e=>{ html += summaryVenueBlock(e); });
+  }
+  if(deployed.length){
+    html += `<div class="section-label">📍 Currently Deployed</div>`;
+    deployed.forEach(e=>{ html += summaryVenueBlock(e); });
+  }
+  main.innerHTML = html;
+}
+
+function toggleSummaryMin(vid){
+  SUMMARY_MIN[vid] = !SUMMARY_MIN[vid];
+  renderSummary();
+}
+
+function makeSummaryPDF(venueId){
+  const v = DATA.venues.find(v=>v.id===venueId);
+  if(!v) return;
+  // Collect items for this venue on currentDate
+  const items = {};
+  DATA.bookings.forEach(b=>{
+    if(b.venueId!==venueId || !dateInBookingWindow(b,currentDate)) return;
+    Object.entries(b.items).forEach(([iid,qty])=>{
+      const info = findItem(iid);
+      const nm = info?info.item.name:iid;
+      if(!items[iid]) items[iid]={name:nm,qty:0};
+      items[iid].qty += qty;
     });
   });
-  main.innerHTML = html;
+  const rows = Object.values(items);
+  if(!rows.length){ toast('No items to print'); return; }
+
+  const dateStr = new Date(currentDate+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase();
+  let itemsHtml = rows.map((it,i)=>
+    `<tr>
+      <td style="padding:6px 8px;border:1px solid #333;text-align:center;">${i+1}</td>
+      <td style="padding:6px 8px;border:1px solid #333;">${it.name.toUpperCase()}</td>
+      <td style="padding:6px 8px;border:1px solid #333;text-align:center;">${it.qty} NOS.</td>
+    </tr>`
+  ).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    body{font-family:Arial,sans-serif;font-size:13px;margin:30px;color:#000;}
+    h2{text-align:center;margin:0 0 4px;font-size:16px;text-transform:uppercase;}
+    .addr{text-align:center;font-size:11px;margin-bottom:16px;color:#333;}
+    .venue-title{text-align:center;font-size:15px;font-weight:bold;margin:12px 0 4px;text-transform:uppercase;}
+    .sub-info{text-align:center;font-size:12px;margin-bottom:12px;}
+    table{width:100%;border-collapse:collapse;margin-top:10px;}
+    th{background:#222;color:#fff;padding:7px 8px;border:1px solid #333;text-align:center;}
+    .sign{margin-top:30px;display:flex;justify-content:space-between;}
+    .sign div{text-align:center;width:200px;border-top:1px solid #000;padding-top:4px;font-size:11px;}
+    @media print{body{margin:10px;}}
+  </style></head><body>
+  <h2>GROVER AUDIO VISUAL SERVICES</h2>
+  <div class="addr">H.No 382, 1st Floor, 100 Feet Road, Near Corporation Bank, Ghitorni, New Delhi - 110030</div>
+  <div class="venue-title">${v.name.toUpperCase()} (${dateStr})</div>
+  <div class="sub-info">Event at a Glance: Event &nbsp;&nbsp;|&nbsp;&nbsp; AUDIO PERSON …..............</div>
+  <table>
+    <tr><th>#</th><th>ITEM</th><th>QTY</th></tr>
+    ${itemsHtml}
+  </table>
+  <div class="sign">
+    <div>Prepared By</div>
+    <div>Received By</div>
+  </div>
+  </body></html>`;
+
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(), 400);
 }
 
 /* ---------------- BOOKING EDIT ---------------- */
