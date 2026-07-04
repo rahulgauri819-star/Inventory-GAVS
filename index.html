@@ -527,7 +527,7 @@
     <button class="btn btn-primary" onclick="saveVenue()">Save Venue</button>
     <button class="btn btn-danger" id="deleteVenueBtn" style="display:none;margin-top:8px;" onclick="showDel('dc_venuesheet')">Delete Venue</button>
     <div class="del-confirm" id="dc_venuesheet" style="margin:8px 0 0;">
-      <span>Delete this venue? History kept.</span>
+      <span>Delete this venue and free all its inventory?</span>
       <div class="del-confirm-btns">
         <button class="dc-yes" onclick="deleteVenueFromSheet()">Delete</button>
         <button class="dc-no" onclick="hideDel('dc_venuesheet')">Cancel</button>
@@ -1770,7 +1770,7 @@ function renderVenues(){
         </div>
       </div>
       <div class="del-confirm" id="dc_vtab_${v.id}" style="margin:0 10px 10px;">
-        <span>Delete ${esc(v.name)}?</span>
+        <span>Delete ${esc(v.name)} and free its inventory?</span>
         <div class="del-confirm-btns">
           <button class="dc-yes" onclick="deleteVenue('${v.id}')">Delete</button>
           <button class="dc-no" onclick="hideDel('dc_vtab_${v.id}')">Cancel</button>
