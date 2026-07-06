@@ -322,7 +322,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v31</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v32</div>
       </div>
     </div>
   </div>
@@ -750,7 +750,7 @@ async function initApp(){
   // Clean orphaned bookings (venue deleted but booking remained)
   const venueIds = new Set((DATA.venues||[]).map(v=>v.id));
   const before = DATA.bookings.length;
-  DATA.bookings = DATA.bookings.filter(b=>venueIds.has(b.venueId));
+  DATA.bookings = DATA.bookings.filter(b=> b && b.event && b.event.from && b.event.to && venueIds.has(b.venueId));
   if(DATA.bookings.length !== before){ try{ await DOC_REF.set(DATA); }catch(e){} }
   document.getElementById('dateInput').value = currentDate;
   DOC_REF.onSnapshot(snap=>{
@@ -836,17 +836,20 @@ function assignedQtyForItem(itemId, date, excludeVenueId){
 
 /* ---- Booking helpers ---- */
 function bookingWindow(b){
+  if(!b || !b.event) return {from:null, to:null};
   const from = (b.transitOut && b.transitOut.from) ? b.transitOut.from : b.event.from;
   const to = (b.transitBack && b.transitBack.to) ? b.transitBack.to : b.event.to;
   return {from, to};
 }
-function dateInRange(date, from, to){ return from && to && date >= from && date <= to; }
+function dateInRange(date, from, to){ return !!(from && to && date >= from && date <= to); }
 function dateInBookingWindow(b, date){
+  if(!b || !b.event) return false;
   const w = bookingWindow(b);
   return dateInRange(date, w.from, w.to);
 }
 // Returns 'out' | 'event' | 'back' | null for a booking on a given date
 function bookingPhaseOn(b, date){
+  if(!b || !b.event) return null;
   if(b.transitOut && dateInRange(date, b.transitOut.from, b.transitOut.to)) return 'out';
   if(dateInRange(date, b.event.from, b.event.to)) return 'event';
   if(b.transitBack && dateInRange(date, b.transitBack.from, b.transitBack.to)) return 'back';
@@ -882,10 +885,18 @@ function render(){
     document.getElementById('mainArea').innerHTML = '<div class="empty-state">⏳ Loading data…</div>';
     return;
   }
-  if(currentTab==='assign') renderAssign();
-  else if(currentTab==='inventory') renderInventory();
-  else if(currentTab==='summary') renderSummary();
-  else renderVenues();
+  try{
+    if(currentTab==='assign') renderAssign();
+    else if(currentTab==='inventory') renderInventory();
+    else if(currentTab==='summary') renderSummary();
+    else renderVenues();
+  }catch(e){
+    console.error('Render error on tab', currentTab, ':', e);
+    document.getElementById('mainArea').innerHTML =
+      '<div class="empty-state">⚠️ Something went wrong displaying this tab.<br><br>' +
+      '<span style="font-size:11px;color:var(--red);">'+esc(e.message)+'</span><br><br>' +
+      '<button onclick="location.reload()" style="background:var(--amber);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-weight:700;margin-top:8px;">Reload App</button></div>';
+  }
 }
 
 /* ---------------- ASSIGN TAB ---------------- */
