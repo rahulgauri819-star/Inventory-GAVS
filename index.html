@@ -1961,7 +1961,11 @@ function summaryVenueBlock(entry){
 function makeSummaryPDF(venueId){
   const v = DATA.venues.find(v=>v.id===venueId);
   if(!v) return;
-  // Collect items for this venue on currentDate
+
+  // Open window FIRST (before any async work) so mobile Safari doesn't block it
+  const w = window.open('', '_blank');
+  if(!w){ toast('Please allow popups to view PDF'); return; }
+
   const items = {};
   DATA.bookings.forEach(b=>{
     if(b.venueId!==venueId || !dateInBookingWindow(b,currentDate)) return;
@@ -1972,8 +1976,8 @@ function makeSummaryPDF(venueId){
       items[iid].qty += qty;
     });
   });
-  const rows = Object.values(items);
-  if(!rows.length){ toast('No items to print'); return; }
+  const rows = Object.values(items).sort((a,b)=>a.name.localeCompare(b.name));
+  if(!rows.length){ w.close(); toast('No items to print'); return; }
 
   const dateStr = new Date(currentDate+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase();
   let itemsHtml = rows.map((it,i)=>
@@ -1985,8 +1989,9 @@ function makeSummaryPDF(venueId){
   ).join('');
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body{font-family:Arial,sans-serif;font-size:13px;margin:30px;color:#000;}
+    body{font-family:Arial,sans-serif;font-size:13px;margin:20px;color:#000;}
     h2{text-align:center;margin:0 0 4px;font-size:16px;text-transform:uppercase;}
     .addr{text-align:center;font-size:11px;margin-bottom:16px;color:#333;}
     .venue-title{text-align:center;font-size:15px;font-weight:bold;margin:12px 0 4px;text-transform:uppercase;}
@@ -1994,9 +1999,12 @@ function makeSummaryPDF(venueId){
     table{width:100%;border-collapse:collapse;margin-top:10px;}
     th{background:#222;color:#fff;padding:7px 8px;border:1px solid #333;text-align:center;}
     .sign{margin-top:30px;display:flex;justify-content:space-between;}
-    .sign div{text-align:center;width:200px;border-top:1px solid #000;padding-top:4px;font-size:11px;}
-    @media print{body{margin:10px;}}
+    .sign div{text-align:center;width:45%;border-top:1px solid #000;padding-top:4px;font-size:11px;}
+    .print-btn{position:fixed;top:10px;right:10px;background:#e8670a;color:#fff;border:none;
+      padding:10px 16px;border-radius:8px;font-weight:700;font-size:14px;}
+    @media print{ .print-btn{display:none;} body{margin:10px;} }
   </style></head><body>
+  <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
   <h2>GROVER AUDIO VISUAL SERVICES</h2>
   <div class="addr">H.No 382, 1st Floor, 100 Feet Road, Near Corporation Bank, Ghitorni, New Delhi - 110030</div>
   <div class="venue-title">${v.name.toUpperCase()} (${dateStr})</div>
@@ -2011,10 +2019,9 @@ function makeSummaryPDF(venueId){
   </div>
   </body></html>`;
 
-  const w = window.open('','_blank');
+  w.document.open();
   w.document.write(html);
   w.document.close();
-  setTimeout(()=>w.print(), 400);
 }
 
 /* ---------------- BOOKING EDIT ---------------- */
