@@ -327,7 +327,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v36</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v37</div>
       </div>
     </div>
   </div>
@@ -1479,6 +1479,8 @@ function confirmAssignment(){
     Object.entries(items).forEach(([iid,qty])=>{ existingBooking.items[iid]=qty; });
     Object.keys(existingBooking.items).forEach(iid=>{ if(!existingBooking.items[iid]) delete existingBooking.items[iid]; });
     if(clientName) existingBooking.clientName = clientName;
+    const vName = (DATA.venues.find(v=>v.id===venueId)||{}).name||'venue';
+    logAction(`Updated booking at ${vName} — ${Object.keys(items).length} item type(s) set`);
     saveData(); closeAllSheets(); render();
     toast('Booking updated');
     return;
@@ -2605,6 +2607,8 @@ function saveBookingEdit(){
   b.transitBack = transitBack;
   b.items = newItems;
   b.clientName = document.getElementById('editClientName').value.trim() || b.clientName || '';
+  const vName2 = (DATA.venues.find(v=>v.id===venueId)||{}).name||'venue';
+  logAction(`Edited booking at ${vName2} via Edit Booking sheet`);
   saveData();
   closeAllSheets();
   render();
