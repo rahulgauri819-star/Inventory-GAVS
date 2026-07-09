@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>GAVS Inventory</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e8670a'/></svg>">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -27,8 +27,9 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
-  body{padding-bottom:90px;}
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    touch-action:pan-x pan-y;}
+  body{padding-bottom:90px;overflow-x:hidden;max-width:100vw;}
   ::-webkit-scrollbar{display:none;}
 
   header{
@@ -336,7 +337,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v39</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v41</div>
       </div>
     </div>
   </div>
@@ -583,7 +584,7 @@
     </div>
     <div id="catTypePassErr" style="color:var(--red);font-size:12.5px;"></div>
   </div>
-  <div class="sheet-foot"><button class="btn btn-primary" onclick="confirmCatTypeChange()">Confirm & Switch</button></div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="confirmGenericPassword()">Confirm</button></div>
 </div>
 
 <div class="sheet" id="catSheet">
@@ -782,6 +783,7 @@ function logAction(text){
 
 function saveData(){
   // Firebase ONLY — no localStorage
+  _saving = true; // protect local changes from being overwritten by incoming snapshots during the debounce wait
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(()=>saveCloud(), 400);
 }
@@ -1161,8 +1163,9 @@ function confirmCancelBooking(id){
 function deleteBooking(id){
   const b = DATA.bookings.find(b=>b.id===id);
   const v = b ? DATA.venues.find(v=>v.id===b.venueId) : null;
+  const w = b ? bookingWindow(b) : null;
   DATA.bookings = DATA.bookings.filter(b=>b.id!==id);
-  logAction(`Cancelled booking at ${v?v.name:'venue'}`);
+  logAction(`Cancelled booking at ${v?v.name:'venue'}${w?` — Event: ${fmtDate(w.from)} → ${fmtDate(w.to)}`:''}`);
   saveData();
   render();
   toast('Booking cancelled');
@@ -1500,7 +1503,8 @@ function confirmAssignment(){
     Object.keys(existingBooking.items).forEach(iid=>{ if(!existingBooking.items[iid]) delete existingBooking.items[iid]; });
     if(clientName) existingBooking.clientName = clientName;
     const vName = (DATA.venues.find(v=>v.id===venueId)||{}).name||'venue';
-    logAction(`Updated booking at ${vName} — ${Object.keys(items).length} item type(s) set`);
+    const w = bookingWindow(existingBooking);
+    logAction(`Updated booking at ${vName} — ${Object.keys(items).length} item type(s) set — Event: ${fmtDate(w.from)} → ${fmtDate(w.to)}`);
     saveData(); closeAllSheets(); render();
     toast('Booking updated');
     return;
@@ -1515,7 +1519,7 @@ function confirmAssignment(){
     transitBack: phases.transitBack,
     items
   });
-  logAction(`Booked ${Object.keys(items).length} item type(s) to ${(DATA.venues.find(v=>v.id===venueId)||{}).name||'venue'}`);
+  logAction(`Booked ${Object.keys(items).length} item type(s) to ${(DATA.venues.find(v=>v.id===venueId)||{}).name||'venue'} — Event: ${fmtDate(phases.event.from)} → ${fmtDate(phases.event.to)}`);
   saveData();
   closeAllSheets();
   render();
@@ -1648,29 +1652,39 @@ function renderInventory(){
 function confirmToggleCatType(catId){
   const cat = DATA.categories.find(c=>c.id===catId);
   if(!cat) return;
-  pendingCatTypeId = catId;
   const currentType = cat.type||'audio';
   const newType = currentType==='video' ? 'audio' : 'video';
-  document.getElementById('catTypePassInfo').innerHTML =
-    `Move <strong>${esc(cat.name)}</strong> from ${currentType==='video'?'🎥 Video':'🔊 Audio'} to <strong>${newType==='video'?'🎥 Video':'🔊 Audio'}</strong>?`;
+  requirePassword(
+    `Move <strong>${esc(cat.name)}</strong> from ${currentType==='video'?'🎥 Video':'🔊 Audio'} to <strong>${newType==='video'?'🎥 Video':'🔊 Audio'}</strong>?`,
+    ()=>{
+      cat.type = newType;
+      logAction(`Changed category "${cat.name}" type to ${newType==='video'?'Video':'Audio'}`);
+      saveData();
+      render();
+      toast(`${cat.name} moved to ${newType==='video'?'🎥 Video':'🔊 Audio'}`);
+    }
+  );
+}
+
+/* Generic password gate for any sensitive action */
+let _pendingPassAction = null;
+function requirePassword(message, onConfirm){
+  _pendingPassAction = onConfirm;
+  document.getElementById('catTypePassInfo').innerHTML = message;
   document.getElementById('catTypePassInput').value = '';
   document.getElementById('catTypePassErr').textContent = '';
   openSheet('catTypePassSheet');
 }
-function confirmCatTypeChange(){
+function confirmGenericPassword(){
   const val = document.getElementById('catTypePassInput').value;
   if(val !== APP_PASS){
     document.getElementById('catTypePassErr').textContent = 'Incorrect password.';
     return;
   }
-  const cat = DATA.categories.find(c=>c.id===pendingCatTypeId);
-  if(!cat){ closeAllSheets(); return; }
-  cat.type = (cat.type==='video') ? 'audio' : 'video';
-  logAction(`Changed category "${cat.name}" type to ${cat.type==='video'?'Video':'Audio'}`);
-  saveData();
+  const action = _pendingPassAction;
+  _pendingPassAction = null;
   closeAllSheets();
-  render();
-  toast(`${cat.name} moved to ${cat.type==='video'?'🎥 Video':'🔊 Audio'}`);
+  if(action) action();
 }
 
 function toggleInvCat(catId){
@@ -1864,9 +1878,11 @@ function confirmCopyBooking(){
   const existingAtTarget = DATA.bookings.find(bk=>
     bk.venueId===copySourceVenueId && bk.id!==b.id && dates.some(d=>dateInBookingWindow(bk,d))
   );
+  const vNameCopy = (DATA.venues.find(v=>v.id===copySourceVenueId)||{}).name||'venue';
   if(existingAtTarget){
     Object.entries(b.items).forEach(([iid,qty])=>{ existingAtTarget.items[iid]=qty; });
     if(clientName) existingAtTarget.clientName = clientName;
+    logAction(`Copied booking to ${vNameCopy} (merged) — Event: ${fmtDate(event.from)} → ${fmtDate(event.to)}`);
     saveData(); closeAllSheets(); render();
     toast('Merged into existing booking ✓');
     return;
@@ -1876,6 +1892,7 @@ function confirmCopyBooking(){
     id:uid('bk'), venueId:copySourceVenueId, clientName,
     transitOut, event, transitBack, items:{...b.items}
   });
+  logAction(`Copied booking to ${vNameCopy} — Event: ${fmtDate(event.from)} → ${fmtDate(event.to)}`);
   saveData(); closeAllSheets(); render();
   toast('Booking copied ✓');
 }
@@ -2041,7 +2058,7 @@ function confirmSendTo(){
   }
   const destV = DATA.venues.find(v=>v.id===destVenueId);
   const srcV = DATA.venues.find(v=>v.id===sendToVenueId);
-  logAction(`Sent ${qty}x ${nm} from ${srcV?srcV.name:''} to ${destV?destV.name:''}`);
+  logAction(`Sent ${qty}x ${nm} from ${srcV?srcV.name:''} to ${destV?destV.name:''} — Event: ${fmtDate(event.from)} → ${fmtDate(event.to)}`);
   saveData();
   closeAllSheets();
   render();
@@ -2271,31 +2288,45 @@ function saveVenue(){
   if(!name){ toast('Enter venue name'); return; }
   if(editingVenueId){
     const v = DATA.venues.find(v=>v.id===editingVenueId);
-    if(v){ logAction(`Renamed venue "${v.name}" to "${name}"`); v.name = name; }
-    toast('Venue updated');
+    if(!v){ toast('Venue not found'); return; }
+    if(v.name === name){ toast('No changes'); closeAllSheets(); return; }
+    requirePassword(
+      `Rename venue <strong>${esc(v.name)}</strong> to <strong>${esc(name)}</strong>?`,
+      ()=>{
+        logAction(`Renamed venue "${v.name}" to "${name}"`);
+        v.name = name;
+        saveData();
+        render();
+        toast('Venue updated');
+      }
+    );
   } else {
     DATA.venues.push({id: uid('v'), name});
     logAction(`Added venue: ${name}`);
+    saveData();
+    closeAllSheets();
+    render();
     toast('Venue added');
   }
-  saveData();
-  closeAllSheets();
-  render();
 }
 function deleteVenue(id){
   const v = DATA.venues.find(v=>v.id===id);
-  // Also cancel all bookings for this venue to free the stock
-  DATA.bookings = DATA.bookings.filter(b=>b.venueId!==id);
-  DATA.venues = DATA.venues.filter(v=>v.id!==id);
-  logAction(`Deleted venue: ${v?v.name:id} (and its bookings)`);
-  saveData();
-  render();
-  toast('Venue and its bookings removed');
+  if(!v) return;
+  requirePassword(
+    `Delete venue <strong>${esc(v.name)}</strong> and free all its inventory? This cannot be undone.`,
+    ()=>{
+      DATA.bookings = DATA.bookings.filter(b=>b.venueId!==id);
+      DATA.venues = DATA.venues.filter(v2=>v2.id!==id);
+      logAction(`Deleted venue: ${v.name} (and its bookings)`);
+      saveData();
+      render();
+      toast('Venue and its bookings removed');
+    }
+  );
 }
 function deleteVenueFromSheet(){
   if(!editingVenueId) return;
   deleteVenue(editingVenueId);
-  closeAllSheets();
 }
 
 /* ---------------- SHEET / OVERLAY CONTROLS ---------------- */
@@ -2435,8 +2466,11 @@ function summaryVenueBlock(entry){
       </div>
       <div class="venue-head-actions" onclick="event.stopPropagation()">
         <span class="venue-min-btn${isMin?' minimized':''}">▾</span>
-        <button class="add-btn" style="background:var(--blue);color:#fff;" onclick="makeSummaryPDF('${vid}')">📄 PDF</button>
       </div>
+    </div>
+    <div style="display:flex;gap:6px;padding:0 10px 8px;flex-wrap:wrap;" onclick="event.stopPropagation()">
+      ${audioItems.length?`<button class="add-btn" style="background:var(--blue);color:#fff;font-size:10.5px;" onclick="makeSummaryPDF('${vid}','audio')">🔊 Audio PDF</button>`:''}
+      ${videoItems.length?`<button class="add-btn" style="background:var(--green);color:#fff;font-size:10.5px;" onclick="makeSummaryPDF('${vid}','video')">🎥 Video PDF</button>`:''}
     </div>
     <div class="venue-body${isMin?' minimized':''}">
       <div class="booking-phases" style="padding:0 10px 8px;">${phaseLine}</div>
@@ -2445,7 +2479,7 @@ function summaryVenueBlock(entry){
   </div>`;
 }
 
-function makeSummaryPDF(venueId){
+function makeSummaryPDF(venueId, typeFilter){
   const v = DATA.venues.find(v=>v.id===venueId);
   if(!v) return;
 
@@ -2459,12 +2493,14 @@ function makeSummaryPDF(venueId){
     Object.entries(b.items).forEach(([iid,qty])=>{
       const info = findItem(iid);
       const nm = info?info.item.name:iid;
+      const itype = info && info.cat.type==='video' ? 'video' : 'audio';
+      if(typeFilter && itype!==typeFilter) return;
       if(!items[iid]) items[iid]={name:nm,qty:0};
       items[iid].qty += qty;
     });
   });
   const rows = Object.values(items).sort((a,b)=>a.name.localeCompare(b.name));
-  if(!rows.length){ w.close(); toast('No items to print'); return; }
+  if(!rows.length){ w.close(); toast('No '+(typeFilter||'')+' items to print'); return; }
 
   const dateStr = new Date(currentDate+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase();
   let itemsHtml = rows.map((it,i)=>
@@ -2494,8 +2530,8 @@ function makeSummaryPDF(venueId){
   <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
   <h2>GROVER AUDIO VISUAL SERVICES</h2>
   <div class="addr">H.No 382, 1st Floor, 100 Feet Road, Near Corporation Bank, Ghitorni, New Delhi - 110030</div>
-  <div class="venue-title">${v.name.toUpperCase()} (${dateStr})</div>
-  <div class="sub-info">Event at a Glance: Event &nbsp;&nbsp;|&nbsp;&nbsp; AUDIO PERSON …..............</div>
+  <div class="venue-title">${v.name.toUpperCase()} (${dateStr})${typeFilter?' — '+typeFilter.toUpperCase()+' LIST':''}</div>
+  <div class="sub-info">Event at a Glance: Event &nbsp;&nbsp;|&nbsp;&nbsp; ${typeFilter==='video'?'VIDEO':'AUDIO'} PERSON …..............</div>
   <table>
     <tr><th>#</th><th>ITEM</th><th>QTY</th></tr>
     ${itemsHtml}
@@ -2636,7 +2672,7 @@ function saveBookingEdit(){
   b.items = newItems;
   b.clientName = document.getElementById('editClientName').value.trim() || b.clientName || '';
   const vName2 = (DATA.venues.find(v=>v.id===venueId)||{}).name||'venue';
-  logAction(`Edited booking at ${vName2} via Edit Booking sheet`);
+  logAction(`Edited booking at ${vName2} — Event: ${fmtDate(event.from)} → ${fmtDate(event.to)}`);
   saveData();
   closeAllSheets();
   render();
@@ -2654,6 +2690,15 @@ function assignedQtyForItemExcludingBooking(itemId, date, excludeBookingId){
   });
   return total;
 }
+
+/* Prevent double-tap-to-zoom on iOS Safari (ignores viewport meta for this gesture) */
+let _lastTouchEnd = 0;
+document.addEventListener('touchend', function(e){
+  const now = Date.now();
+  if(now - _lastTouchEnd <= 350){ e.preventDefault(); }
+  _lastTouchEnd = now;
+}, {passive:false});
+document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 /* ---------------- INIT ---------------- */
 document.getElementById('dateInput').value = currentDate;
