@@ -44,13 +44,13 @@
     box-shadow:0 0 6px rgba(232,103,10,.4);}
   .h-title h1{font-size:16px;margin:0;letter-spacing:.3px;font-weight:700;}
   .h-title .sub{font-size:10.5px;color:var(--sub);letter-spacing:1.5px;text-transform:uppercase;}
-  .date-row{display:flex;align-items:center;gap:6px;margin-top:10px;}
+  .date-row{display:flex;align-items:center;gap:12px;margin-top:14px;}
   .date-row input[type=date]{
-    flex:0 1 150px;background:var(--panel2);border:1px solid var(--line);color:var(--text);
-    padding:5px 8px;border-radius:7px;font-size:12.5px;margin:0 auto;text-align:center;
+    flex:0 1 260px;background:var(--panel2);border:2px solid var(--amber);color:var(--text);
+    padding:14px 16px;border-radius:12px;font-size:22px;font-weight:700;margin:0 auto;text-align:center;
   }
-  .date-nav{background:var(--panel2);border:1px solid var(--line);color:var(--amber);
-    width:28px;height:28px;border-radius:7px;font-size:14px;display:flex;align-items:center;justify-content:center;}
+  .date-nav{background:var(--panel2);border:2px solid var(--line);color:var(--amber);
+    width:44px;height:44px;border-radius:12px;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;}
 
   .tabs{display:flex;gap:6px;margin-top:12px;}
   .tab{flex:1;text-align:center;padding:9px 4px;border-radius:8px;font-size:12.5px;font-weight:600;
@@ -63,7 +63,11 @@
   .section-label:first-child{margin-top:0;}
 
   /* Venue cards — 2-up grid */
-  .venue-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .venue-grid{column-count:4;column-gap:10px;}
+  .venue-grid .venue-card{break-inside:avoid;margin-bottom:10px;}
+  @media (max-width:1400px){ .venue-grid{column-count:3;} }
+  @media (max-width:1000px){ .venue-grid{column-count:2;} }
+  @media (max-width:640px){ .venue-grid{column-count:1;} }
   .venue-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     margin-bottom:0;overflow:hidden;display:flex;flex-direction:column;}
   .venue-body{display:block;}
@@ -100,6 +104,11 @@
     padding:10px 12px;margin-bottom:6px;font-size:13px;}
   .log-ts{font-size:10.5px;color:var(--sub);margin-bottom:2px;font-weight:600;}
   .log-text{color:var(--text);}
+  .cat-grid{column-count:4;column-gap:10px;}
+  .cat-grid .cat-block, .cat-grid .venue-card{break-inside:avoid;}
+  @media (max-width:1400px){ .cat-grid{column-count:3;} }
+  @media (max-width:1000px){ .cat-grid{column-count:2;} }
+  @media (max-width:640px){ .cat-grid{column-count:1;} }
   .cat-block{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     margin-bottom:10px;overflow:hidden;}
   .cat-head{display:flex;justify-content:space-between;align-items:center;
@@ -327,7 +336,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v37</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v39</div>
       </div>
     </div>
   </div>
@@ -995,10 +1004,21 @@ function renderAssign(){
     return;
   }
 
+  const venuesWithBookings = DATA.venues.filter(v=>
+    DATA.bookings.some(b=>b.venueId===v.id && dateInBookingWindow(b, currentDate))
+  );
+
   html += '<div class="section-label">Venues — ' + fmtDate(currentDate) + '</div>';
+
+  if(venuesWithBookings.length===0){
+    html += '<div class="empty-state">Nothing booked on this date yet. Tap + below to book a venue.</div>';
+    main.innerHTML = html;
+    return;
+  }
+
   html += '<div class="venue-grid">';
 
-  DATA.venues.forEach(v=>{
+  venuesWithBookings.forEach(v=>{
     // All bookings for this venue active on the current date
     const vBookings = DATA.bookings.filter(b=>b.venueId===v.id && dateInBookingWindow(b, currentDate));
     // Aggregate items + dominant phase for the date
@@ -1609,14 +1629,18 @@ function renderInventory(){
     <span style="display:inline-block;transition:transform .15s;transform:rotate(${audMin?0:90}deg);">▸</span>🔊 AUDIO EQUIPMENT</div>`;
   if(!audMin){
     if(audioCats.length===0) html += '<div class="empty-state">No audio categories yet.</div>';
+    html += '<div class="cat-grid">';
     audioCats.forEach(c=>{ html += catBlockHtml(c); });
+    html += '</div>';
   }
 
   html += `<div class="section-label" style="color:var(--green);margin-top:20px;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="toggleSectionMinAndRender('inv_video')">
     <span style="display:inline-block;transition:transform .15s;transform:rotate(${vidMin?0:90}deg);">▸</span>🎥 VIDEO EQUIPMENT</div>`;
   if(!vidMin){
     if(videoCats.length===0) html += '<div class="empty-state">No video categories yet. Tap + to add one.</div>';
+    html += '<div class="cat-grid">';
     videoCats.forEach(c=>{ html += catBlockHtml(c); });
+    html += '</div>';
   }
 
   main.innerHTML = html + '</div>';
@@ -2354,11 +2378,15 @@ function renderSummary(){
 
   if(dispatchToday.length){
     html += `<div class="section-label">🚚 Dispatching Today</div>`;
+    html += '<div class="cat-grid">';
     dispatchToday.forEach(e=>{ html += summaryVenueBlock(e); });
+    html += '</div>';
   }
   if(deployed.length){
     html += `<div class="section-label">📍 Currently Deployed</div>`;
+    html += '<div class="cat-grid">';
     deployed.forEach(e=>{ html += summaryVenueBlock(e); });
+    html += '</div>';
   }
   main.innerHTML = html;
 }
