@@ -322,7 +322,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v34</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v35</div>
       </div>
     </div>
   </div>
@@ -507,6 +507,20 @@
 </div>
 
 <!-- Add category sheet -->
+<!-- Confirm password to change category type -->
+<div class="sheet" id="catTypePassSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3>Confirm Password</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div id="catTypePassInfo" style="font-size:13px;color:var(--sub);margin-bottom:12px;"></div>
+    <div class="field"><label>App Password</label>
+      <input type="password" id="catTypePassInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')confirmCatTypeChange()">
+    </div>
+    <div id="catTypePassErr" style="color:var(--red);font-size:12.5px;"></div>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="confirmCatTypeChange()">Confirm & Switch</button></div>
+</div>
+
 <div class="sheet" id="catSheet">
   <div class="sheet-handle"></div>
   <div class="sheet-head"><h3>Add Category</h3><span class="close" onclick="closeAllSheets()">×</span></div>
@@ -1398,7 +1412,9 @@ function renderInventory(){
     const outCount = c.items.filter(it=>availableQty(it.id,currentDate,null)<it.totalQty).length;
     let h = `<div class="cat-block">
       <div class="cat-head" id="cath_${c.id}" onclick="toggleInvCat('${c.id}')">
-        <span><span class="cat-chev">▶</span>${esc(c.name)}</span>
+        <span><span class="cat-chev">▶</span>${esc(c.name)}
+          <span onclick="event.stopPropagation();confirmToggleCatType('${c.id}')" style="margin-left:8px;font-size:10px;padding:2px 7px;border-radius:10px;background:${(c.type||'audio')==='video'?'#e8f7ee':'#e8f0fd'};color:${(c.type||'audio')==='video'?'var(--green)':'var(--blue)'};font-weight:700;cursor:pointer;">${(c.type||'audio')==='video'?'🎥 VIDEO':'🔊 AUDIO'}</span>
+        </span>
         <span style="display:flex;align-items:center;gap:12px;">
           ${outCount?`<span style="font-size:10px;color:var(--amber);font-weight:600;">${outCount} out</span>`:''}
           <span class="cat-add" onclick="event.stopPropagation();openAddItem('${c.id}')">+ Item</span>
@@ -1458,6 +1474,34 @@ function renderInventory(){
   videoCats.forEach(c=>{ html += catBlockHtml(c); });
 
   main.innerHTML = html;
+}
+
+let pendingCatTypeId = null;
+function confirmToggleCatType(catId){
+  const cat = DATA.categories.find(c=>c.id===catId);
+  if(!cat) return;
+  pendingCatTypeId = catId;
+  const currentType = cat.type||'audio';
+  const newType = currentType==='video' ? 'audio' : 'video';
+  document.getElementById('catTypePassInfo').innerHTML =
+    `Move <strong>${esc(cat.name)}</strong> from ${currentType==='video'?'🎥 Video':'🔊 Audio'} to <strong>${newType==='video'?'🎥 Video':'🔊 Audio'}</strong>?`;
+  document.getElementById('catTypePassInput').value = '';
+  document.getElementById('catTypePassErr').textContent = '';
+  openSheet('catTypePassSheet');
+}
+function confirmCatTypeChange(){
+  const val = document.getElementById('catTypePassInput').value;
+  if(val !== APP_PASS){
+    document.getElementById('catTypePassErr').textContent = 'Incorrect password.';
+    return;
+  }
+  const cat = DATA.categories.find(c=>c.id===pendingCatTypeId);
+  if(!cat){ closeAllSheets(); return; }
+  cat.type = (cat.type==='video') ? 'audio' : 'video';
+  saveData();
+  closeAllSheets();
+  render();
+  toast(`${cat.name} moved to ${cat.type==='video'?'🎥 Video':'🔊 Audio'}`);
 }
 
 function toggleInvCat(catId){
