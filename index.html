@@ -95,6 +95,11 @@
   .dep-phase{font-size:11.5px;color:var(--sub);margin-top:1px;}
   .dep-return{font-size:11px;color:var(--amber);font-weight:600;margin-top:3px;}
   .dep-qty{font-size:22px;font-weight:700;color:var(--amber);font-variant-numeric:tabular-nums;}
+
+  .log-entry{background:#fff;border:1px solid var(--line);border-radius:9px;
+    padding:10px 12px;margin-bottom:6px;font-size:13px;}
+  .log-ts{font-size:10.5px;color:var(--sub);margin-bottom:2px;font-weight:600;}
+  .log-text{color:var(--text);}
   .cat-block{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     margin-bottom:10px;overflow:hidden;}
   .cat-head{display:flex;justify-content:space-between;align-items:center;
@@ -322,7 +327,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v35</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v36</div>
       </div>
     </div>
   </div>
@@ -336,6 +341,7 @@
     <div class="tab" data-tab="inventory" onclick="switchTab('inventory')">Inventory</div>
     <div class="tab" data-tab="summary" onclick="switchTab('summary')">Summary</div>
     <div class="tab" data-tab="venues" onclick="switchTab('venues')">Venues</div>
+    <div class="tab" data-tab="logs" onclick="switchTab('logs')">Logs</div>
   </div>
 </header>
 
@@ -433,6 +439,56 @@
 </div>
 
 <!-- Edit Booking sheet -->
+<!-- Call Off Item sheet -->
+<div class="sheet" id="callOffSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3>↩️ Call Off Item</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div id="callOffInfo" style="font-size:13px;color:var(--sub);margin-bottom:12px;"></div>
+    <div class="field"><label>Item</label><select id="callOffItemSelect" onchange="renderCallOffQtyMax()"></select></div>
+    <div class="field"><label>Quantity to Call Off</label>
+      <input type="number" id="callOffQty" min="1" placeholder="qty">
+      <div id="callOffQtyHint" style="font-size:11px;color:var(--sub);margin-top:4px;"></div>
+    </div>
+    <div class="field"><label>Actual Return Date</label>
+      <input type="date" id="callOffDate">
+    </div>
+    <div id="callOffErr" style="color:var(--red);font-size:12.5px;"></div>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="confirmCallOff()">Call Off & Free Stock</button></div>
+</div>
+
+<!-- Send To Another Venue sheet -->
+<div class="sheet" id="sendToSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3>➡️ Send To Another Venue</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div id="sendToInfo" style="font-size:13px;color:var(--sub);margin-bottom:12px;"></div>
+    <div class="field"><label>Item</label><select id="sendToItemSelect" onchange="renderSendToQtyMax()"></select></div>
+    <div class="field"><label>Quantity to Send</label>
+      <input type="number" id="sendToQty" min="1" placeholder="qty">
+      <div id="sendToQtyHint" style="font-size:11px;color:var(--sub);margin-top:4px;"></div>
+    </div>
+    <div class="field"><label>Destination Venue</label><select id="sendToVenueSelect"></select></div>
+    <div class="phase-range-block prb-out">
+      <div class="prb-title"><span>🚚</span> Transit (optional)</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="sendToTransitFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="sendToTransitTo"></div>
+      </div>
+    </div>
+    <div class="phase-range-block prb-event">
+      <div class="prb-title"><span>🎪</span> Event at Destination</div>
+      <div class="range-dates">
+        <div class="field"><label>From</label><input type="date" id="sendToEvFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="sendToEvTo"></div>
+      </div>
+    </div>
+    <div id="sendToErr" style="color:var(--red);font-size:12.5px;"></div>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="confirmSendTo()">Send To Venue</button></div>
+</div>
+
 <div class="sheet" id="editBookingSheet">
   <div class="sheet-handle"></div>
   <div class="sheet-head"><h3>Edit Booking</h3><span class="close" onclick="closeAllSheets()">×</span></div>
@@ -670,7 +726,8 @@ function seedData(){
     ],
     venues: [],
     bookings: [],
-    dlog: {}
+    dlog: {},
+    logs: []
   };
 }
 
@@ -708,6 +765,12 @@ function setSaveInd(msg, color){
   el.style.color = color || 'var(--sub)';
 }
 
+function logAction(text){
+  if(!DATA.logs) DATA.logs = [];
+  DATA.logs.unshift({ ts: Date.now(), text });
+  if(DATA.logs.length > 500) DATA.logs = DATA.logs.slice(0, 500); // cap size
+}
+
 function saveData(){
   // Firebase ONLY — no localStorage
   clearTimeout(_saveTimer);
@@ -738,7 +801,7 @@ async function loadFromFirebase(){
     if(snap.exists){
       const d = snap.data();
       if(!d.bookings) d.bookings = [];
-      if(!d.dlog) d.dlog = {};
+      if(!d.dlog) d.dlog = {}; if(!d.logs) d.logs = [];
       // Migration: tag categories without a type as 'audio' (all pre-existing gear)
       if(d.categories) d.categories.forEach(c=>{ if(!c.type) c.type='audio'; });
       return d;
@@ -779,7 +842,7 @@ async function initApp(){
     if(snap.exists && !_saving){
       const d = snap.data();
       if(!d.bookings) d.bookings = [];
-      if(!d.dlog) d.dlog = {};
+      if(!d.dlog) d.dlog = {}; if(!d.logs) d.logs = [];
       DATA = d;
       render();
     }
@@ -911,6 +974,7 @@ function render(){
     if(currentTab==='assign') renderAssign();
     else if(currentTab==='inventory') renderInventory();
     else if(currentTab==='summary') renderSummary();
+    else if(currentTab==='logs') renderLogs();
     else renderVenues();
   }catch(e){
     console.error('Render error on tab', currentTab, ':', e);
@@ -957,11 +1021,26 @@ function renderAssign(){
       });
     });
     const sortedItems = Object.entries(mergedItems).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+    const vAudio=[], vVideo=[];
     sortedItems.forEach(([iid, d])=>{
       totalTypes++;
-      itemsHtml += `<div class="item-row"><span>${esc(d.name)}</span>
-        <span class="qty">${d.qty}</span></div>`;
+      const info = findItem(iid);
+      const type = info && info.cat.type==='video' ? 'video' : 'audio';
+      (type==='video'?vVideo:vAudio).push(d);
     });
+    const vaKey='va_'+v.id, vvKey='vv_'+v.id;
+    const vaMin = SECTION_MIN[vaKey]===true, vvMin = SECTION_MIN[vvKey]===true;
+    function subRows(arr){ return arr.map(d=>`<div class="item-row"><span>${esc(d.name)}</span><span class="qty">${d.qty}</span></div>`).join(''); }
+    if(vAudio.length){
+      itemsHtml += `<div style="font-size:9.5px;color:var(--blue);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:8px 0 3px;cursor:pointer;display:flex;align-items:center;gap:4px;" onclick="toggleSectionMinAndRender('${vaKey}')">
+        <span style="display:inline-block;transition:transform .15s;transform:rotate(${vaMin?0:90}deg);font-size:9px;">▸</span>🔊 Audio (${vAudio.length})</div>`;
+      if(!vaMin) itemsHtml += subRows(vAudio);
+    }
+    if(vVideo.length){
+      itemsHtml += `<div style="font-size:9.5px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:8px 0 3px;cursor:pointer;display:flex;align-items:center;gap:4px;" onclick="toggleSectionMinAndRender('${vvKey}')">
+        <span style="display:inline-block;transition:transform .15s;transform:rotate(${vvMin?0:90}deg);font-size:9px;">▸</span>🎥 Video (${vVideo.length})</div>`;
+      if(!vvMin) itemsHtml += subRows(vVideo);
+    }
 
     const hasBooking = vBookings.length > 0;
     const btnLabel = hasBooking ? '✎ Edit' : '+ Add';
@@ -986,7 +1065,11 @@ function renderAssign(){
         <div class="venue-items">
           ${itemsHtml || '<div class="empty-venue">Nothing booked on this date.</div>'}
         </div>
-        ${hasBooking ? `<div style="padding:0 10px 10px;"><button onclick="openCopyBooking('${v.id}')" style="font-size:11px;color:var(--blue);background:none;border:none;padding:0;cursor:pointer;font-weight:600;">📋 Copy to another date</button></div>` : ''}
+        ${hasBooking ? `<div style="padding:0 10px 10px;display:flex;gap:14px;flex-wrap:wrap;">
+          <button onclick="openCopyBooking('${v.id}')" style="font-size:11px;color:var(--blue);background:none;border:none;padding:0;cursor:pointer;font-weight:600;">📋 Copy to another date</button>
+          <button onclick="openCallOff('${v.id}')" style="font-size:11px;color:var(--amber);background:none;border:none;padding:0;cursor:pointer;font-weight:600;">↩️ Call Off Item</button>
+          <button onclick="openSendTo('${v.id}')" style="font-size:11px;color:var(--green);background:none;border:none;padding:0;cursor:pointer;font-weight:600;">➡️ Send To</button>
+        </div>` : ''}
       </div>
     </div>`;
   });
@@ -1056,7 +1139,10 @@ function confirmCancelBooking(id){
 }
 
 function deleteBooking(id){
+  const b = DATA.bookings.find(b=>b.id===id);
+  const v = b ? DATA.venues.find(v=>v.id===b.venueId) : null;
   DATA.bookings = DATA.bookings.filter(b=>b.id!==id);
+  logAction(`Cancelled booking at ${v?v.name:'venue'}`);
   saveData();
   render();
   toast('Booking cancelled');
@@ -1073,6 +1159,55 @@ function removeAssignment(venueId, itemId){
 }
 
 /* ---------------- ASSIGN SHEET (picker) ---------------- */
+function buildPickerBody(){
+  const body = document.getElementById('assignBody');
+  let html = '';
+  function pickCatHtml(c){
+    if(c.items.length===0) return '';
+    let h = `<div class="pick-cat" id="pc_${c.id}" onclick="togglePickCat('${c.id}')">
+      <span>${esc(c.name)}</span>
+      <span class="cnt" id="cnt_${c.id}"></span>
+      <span class="chev">▶</span>
+    </div>
+    <div class="pick-group" id="pg_${c.id}">`;
+    c.items.forEach(it=>{
+      h += `<div class="pick-row" data-item="${it.id}">
+        <div class="pick-nm" onclick="togglePickerWhere('${it.id}')" style="cursor:pointer;">${esc(it.name)}<span class="av" id="av_${it.id}"></span></div>
+        <div class="stepper">
+          <button onclick="stepQty('${it.id}',-1)">−</button>
+          <span class="val" id="val_${it.id}">0</span>
+          <button onclick="stepQty('${it.id}',1)">+</button>
+        </div>
+      </div>
+      <div class="where-inline" id="pwi_${it.id}"></div>`;
+    });
+    h += `</div>`;
+    return h;
+  }
+  const audioCats = DATA.categories.filter(c=>(c.type||'audio')==='audio');
+  const videoCats = DATA.categories.filter(c=>c.type==='video');
+  const pAudMin = SECTION_MIN['pick_audio']===true;
+  const pVidMin = SECTION_MIN['pick_video']===true;
+  if(audioCats.some(c=>c.items.length)){
+    html += `<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--blue);font-weight:700;margin:10px 0 4px;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="toggleSectionMin('pick_audio');renderPickerAfterSectionToggle();">
+      <span style="display:inline-block;transition:transform .15s;transform:rotate(${pAudMin?0:90}deg);">▸</span>🔊 Audio</div>`;
+    if(!pAudMin) audioCats.forEach(c=>{ html += pickCatHtml(c); });
+  }
+  if(videoCats.some(c=>c.items.length)){
+    html += `<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--green);font-weight:700;margin:14px 0 4px;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="toggleSectionMin('pick_video');renderPickerAfterSectionToggle();">
+      <span style="display:inline-block;transition:transform .15s;transform:rotate(${pVidMin?0:90}deg);">▸</span>🎥 Video</div>`;
+    if(!pVidMin) videoCats.forEach(c=>{ html += pickCatHtml(c); });
+  }
+  body.innerHTML = html;
+
+  // Pre-fill stepper display values from assignPickerQtys
+  Object.entries(assignPickerQtys).forEach(([iid,qty])=>{
+    const el = document.getElementById('val_'+iid);
+    if(el && qty>0){ el.textContent=qty; }
+  });
+  renderPickerItems();
+}
+
 function openAddAssignment(preselectVenueId){
   if(DATA.venues.length===0){ toast('Add a venue first'); return; }
   assignPickerQtys = {};
@@ -1102,47 +1237,7 @@ function openAddAssignment(preselectVenueId){
   sel.innerHTML = DATA.venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
   if(preselectVenueId) sel.value = preselectVenueId;
 
-  const body = document.getElementById('assignBody');
-  let html = '';
-  function pickCatHtml(c){
-    if(c.items.length===0) return '';
-    let h = `<div class="pick-cat" id="pc_${c.id}" onclick="togglePickCat('${c.id}')">
-      <span>${esc(c.name)}</span>
-      <span class="cnt" id="cnt_${c.id}"></span>
-      <span class="chev">▶</span>
-    </div>
-    <div class="pick-group" id="pg_${c.id}">`;
-    c.items.forEach(it=>{
-      h += `<div class="pick-row" data-item="${it.id}">
-        <div class="pick-nm" onclick="togglePickerWhere('${it.id}')" style="cursor:pointer;">${esc(it.name)}<span class="av" id="av_${it.id}"></span></div>
-        <div class="stepper">
-          <button onclick="stepQty('${it.id}',-1)">−</button>
-          <span class="val" id="val_${it.id}">0</span>
-          <button onclick="stepQty('${it.id}',1)">+</button>
-        </div>
-      </div>
-      <div class="where-inline" id="pwi_${it.id}"></div>`;
-    });
-    h += `</div>`;
-    return h;
-  }
-  const audioCats = DATA.categories.filter(c=>(c.type||'audio')==='audio');
-  const videoCats = DATA.categories.filter(c=>c.type==='video');
-  if(audioCats.some(c=>c.items.length)){
-    html += `<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--blue);font-weight:700;margin:10px 0 4px;">🔊 Audio</div>`;
-    audioCats.forEach(c=>{ html += pickCatHtml(c); });
-  }
-  if(videoCats.some(c=>c.items.length)){
-    html += `<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--green);font-weight:700;margin:14px 0 4px;">🎥 Video</div>`;
-    videoCats.forEach(c=>{ html += pickCatHtml(c); });
-  }
-  body.innerHTML = html;
-
-  // Pre-fill stepper display values from assignPickerQtys
-  Object.entries(assignPickerQtys).forEach(([iid,qty])=>{
-    const el = document.getElementById('val_'+iid);
-    if(el && qty>0){ el.textContent=qty; }
-  });
+  buildPickerBody();
 
   // Add new venue inline at top of venue select
   const venueAddEl = document.getElementById('pickerAddVenue');
@@ -1163,6 +1258,7 @@ function savePickerNewVenue(){
   if(!name){ toast('Enter venue name'); return; }
   const newV = {id: uid('v'), name};
   DATA.venues.push(newV);
+  logAction(`Added venue: ${newV.name}`);
   saveData();
   // Refresh select and pick new venue
   const sel = document.getElementById('pickerVenueSelect');
@@ -1397,6 +1493,7 @@ function confirmAssignment(){
     transitBack: phases.transitBack,
     items
   });
+  logAction(`Booked ${Object.keys(items).length} item type(s) to ${(DATA.venues.find(v=>v.id===venueId)||{}).name||'venue'}`);
   saveData();
   closeAllSheets();
   render();
@@ -1404,9 +1501,48 @@ function confirmAssignment(){
 }
 
 /* ---------------- INVENTORY TAB ---------------- */
+const SECTION_MIN = {};
+function toggleSectionMin(key){
+  SECTION_MIN[key] = !SECTION_MIN[key];
+}
+function toggleSectionMinAndRender(key){
+  toggleSectionMin(key);
+  render();
+}
+function renderPickerAfterSectionToggle(){
+  // Rebuild picker body only (preserve assignPickerQtys), without closing/reopening sheet
+  buildPickerBody();
+}
+
+function filterInventorySearch(){
+  const q = document.getElementById('invSearch').value.trim().toLowerCase();
+  const resultsEl = document.getElementById('invSearchResults');
+  if(!q){ resultsEl.innerHTML=''; resultsEl.style.display='none'; document.getElementById('invNormalView').style.display='block'; return; }
+  document.getElementById('invNormalView').style.display='none';
+  resultsEl.style.display='block';
+  let rows='';
+  DATA.categories.forEach(c=>{
+    c.items.forEach(it=>{
+      if(it.name.toLowerCase().includes(q)){
+        const av = availableQty(it.id, currentDate, null);
+        rows += `<div class="inv-item"><div class="inv-item-row">
+          <span class="nm" onclick="toggleWhereInline('${it.id}')">${esc(it.name)}
+            <span style="font-size:10px;color:var(--sub);font-weight:600;margin-left:6px;">${(c.type==='video'?'🎥':'🔊')} ${esc(c.name)}</span>
+          </span>
+          <span class="stat"><span class="avail-text">${av}/${it.totalQty}</span></span>
+        </div><div class="where-inline" id="wi_${it.id}"></div></div>`;
+      }
+    });
+  });
+  resultsEl.innerHTML = rows || '<div class="empty-state">No items match "'+esc(q)+'"</div>';
+}
+
 function renderInventory(){
   const main = document.getElementById('mainArea');
   let html = '<div class="section-label">Inventory Master</div>';
+  html += `<input type="text" class="pick-search" id="invSearch" placeholder="🔍 Search items… e.g. V8, mixer" oninput="filterInventorySearch()" style="margin-bottom:12px;">
+  <div id="invSearchResults" style="display:none;"></div>
+  <div id="invNormalView">`;
 
   function catBlockHtml(c){
     const outCount = c.items.filter(it=>availableQty(it.id,currentDate,null)<it.totalQty).length;
@@ -1464,19 +1600,25 @@ function renderInventory(){
 
   const audioCats = DATA.categories.filter(c=>(c.type||'audio')==='audio');
   const videoCats = DATA.categories.filter(c=>c.type==='video');
+  const audMin = SECTION_MIN['inv_audio']===true;
+  const vidMin = SECTION_MIN['inv_video']===true;
 
-  html += `<div class="section-label" style="color:var(--blue);">🔊 AUDIO EQUIPMENT</div>`;
-  if(audioCats.length===0) html += '<div class="empty-state">No audio categories yet.</div>';
-  audioCats.forEach(c=>{ html += catBlockHtml(c); });
+  html += `<div class="section-label" style="color:var(--blue);cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="toggleSectionMinAndRender('inv_audio')">
+    <span style="display:inline-block;transition:transform .15s;transform:rotate(${audMin?0:90}deg);">▸</span>🔊 AUDIO EQUIPMENT</div>`;
+  if(!audMin){
+    if(audioCats.length===0) html += '<div class="empty-state">No audio categories yet.</div>';
+    audioCats.forEach(c=>{ html += catBlockHtml(c); });
+  }
 
-  html += `<div class="section-label" style="color:var(--green);margin-top:20px;">🎥 VIDEO EQUIPMENT</div>`;
-  if(videoCats.length===0) html += '<div class="empty-state">No video categories yet. Tap + to add one.</div>';
-  videoCats.forEach(c=>{ html += catBlockHtml(c); });
+  html += `<div class="section-label" style="color:var(--green);margin-top:20px;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="toggleSectionMinAndRender('inv_video')">
+    <span style="display:inline-block;transition:transform .15s;transform:rotate(${vidMin?0:90}deg);">▸</span>🎥 VIDEO EQUIPMENT</div>`;
+  if(!vidMin){
+    if(videoCats.length===0) html += '<div class="empty-state">No video categories yet. Tap + to add one.</div>';
+    videoCats.forEach(c=>{ html += catBlockHtml(c); });
+  }
 
-  main.innerHTML = html;
+  main.innerHTML = html + '</div>';
 }
-
-let pendingCatTypeId = null;
 function confirmToggleCatType(catId){
   const cat = DATA.categories.find(c=>c.id===catId);
   if(!cat) return;
@@ -1498,6 +1640,7 @@ function confirmCatTypeChange(){
   const cat = DATA.categories.find(c=>c.id===pendingCatTypeId);
   if(!cat){ closeAllSheets(); return; }
   cat.type = (cat.type==='video') ? 'audio' : 'video';
+  logAction(`Changed category "${cat.name}" type to ${cat.type==='video'?'Video':'Audio'}`);
   saveData();
   closeAllSheets();
   render();
@@ -1583,6 +1726,7 @@ function saveCategory(){
   const name = document.getElementById('catNameInput').value.trim();
   if(!name){ toast('Enter a name'); return; }
   DATA.categories.push({id: uid('cat'), name, type: selectedCatType, items:[]});
+  logAction(`Added category: ${name} (${selectedCatType==='video'?'Video':'Audio'})`);
   saveData();
   closeAllSheets();
   render();
@@ -1637,6 +1781,7 @@ function saveItem(){
   } else {
     cat.items.push({id: uid('it'), name, totalQty:qty, repairQty:repair});
   }
+  logAction(editingItemId ? `Edited item: ${name} (qty ${qty})` : `Added item: ${name} to ${cat.name} (qty ${qty})`);
   saveData();
   closeAllSheets();
   render();
@@ -1709,6 +1854,174 @@ function confirmCopyBooking(){
   toast('Booking copied ✓');
 }
 
+/* ---------------- CALL OFF ITEM ---------------- */
+let callOffVenueId = null;
+function openCallOff(venueId){
+  const b = DATA.bookings.find(b=>b.venueId===venueId && dateInBookingWindow(b,currentDate));
+  if(!b || !Object.keys(b.items).length){ toast('No items to call off'); return; }
+  callOffVenueId = venueId;
+  const v = DATA.venues.find(v=>v.id===venueId);
+  document.getElementById('callOffInfo').innerHTML = `<strong>${v?esc(v.name):''}</strong> — pick an item to bring back early.`;
+  const sel = document.getElementById('callOffItemSelect');
+  sel.innerHTML = Object.entries(b.items).map(([iid,qty])=>{
+    const info = findItem(iid);
+    return `<option value="${iid}">${info?esc(info.item.name):iid} (${qty} booked)</option>`;
+  }).join('');
+  document.getElementById('callOffQty').value = '';
+  document.getElementById('callOffDate').value = currentDate;
+  document.getElementById('callOffErr').textContent = '';
+  openSheet('callOffSheet');
+  renderCallOffQtyMax();
+}
+function renderCallOffQtyMax(){
+  const b = DATA.bookings.find(b=>b.venueId===callOffVenueId && dateInBookingWindow(b,currentDate));
+  if(!b) return;
+  const iid = document.getElementById('callOffItemSelect').value;
+  const qty = b.items[iid]||0;
+  document.getElementById('callOffQtyHint').textContent = `Max: ${qty} currently booked`;
+}
+function confirmCallOff(){
+  const b = DATA.bookings.find(b=>b.venueId===callOffVenueId && dateInBookingWindow(b,currentDate));
+  if(!b){ toast('Booking not found'); return; }
+  const iid = document.getElementById('callOffItemSelect').value;
+  const qty = parseInt(document.getElementById('callOffQty').value,10);
+  const retDate = document.getElementById('callOffDate').value;
+  const bookedQty = b.items[iid]||0;
+  const errEl = document.getElementById('callOffErr');
+  if(isNaN(qty)||qty<1){ errEl.textContent='Enter a valid quantity'; return; }
+  if(qty>bookedQty){ errEl.textContent=`Only ${bookedQty} currently booked`; return; }
+  if(!retDate){ errEl.textContent='Pick a return date'; return; }
+  const w = bookingWindow(b);
+  if(retDate<w.from || retDate>w.to){ errEl.textContent='Return date must be within the booking window ('+fmtDate(w.from)+' – '+fmtDate(w.to)+')'; return; }
+
+  const info = findItem(iid);
+  const nm = info?info.item.name:iid;
+
+  if(qty===bookedQty){
+    // Whole item is being called off — just shorten the booking's window for that item
+    // Simplest: remove item from booking, then create a mini "returned" record isn't tracked separately;
+    // since booking windows are per-booking not per-item, we split into a new booking for the remainder if window differs
+  }
+
+  // Split: original booking keeps qty for items OTHER than this one, plus (bookedQty-qty) of this item for the full window.
+  // The called-off qty gets a new booking with the SAME transit/event start, but transitBack/event.to = retDate (no further transit).
+  const remainingQty = bookedQty - qty;
+  if(remainingQty>0){
+    b.items[iid] = remainingQty;
+  } else {
+    delete b.items[iid];
+  }
+
+  // Create a short booking representing the called-off units, ending on retDate (so they're free from retDate onward)
+  const shortBooking = {
+    id: uid('bk'),
+    venueId: callOffVenueId,
+    clientName: (b.clientName||'') + ' (called off early)',
+    transitOut: b.transitOut,
+    event: { from: b.event.from, to: retDate < b.event.to ? retDate : b.event.to },
+    transitBack: null,
+    items: { [iid]: qty }
+  };
+  DATA.bookings.push(shortBooking);
+  logAction(`Called off ${qty}x ${nm} — free from ${fmtDate(retDate)}`);
+  saveData();
+  closeAllSheets();
+  render();
+  toast(`${qty}x ${nm} called off — free from ${fmtDate(retDate)}`);
+}
+
+/* ---------------- SEND TO ANOTHER VENUE ---------------- */
+let sendToVenueId = null;
+function openSendTo(venueId){
+  const b = DATA.bookings.find(b=>b.venueId===venueId && dateInBookingWindow(b,currentDate));
+  if(!b || !Object.keys(b.items).length){ toast('No items to send'); return; }
+  sendToVenueId = venueId;
+  const v = DATA.venues.find(v=>v.id===venueId);
+  document.getElementById('sendToInfo').innerHTML = `From <strong>${v?esc(v.name):''}</strong> to another venue.`;
+  const sel = document.getElementById('sendToItemSelect');
+  sel.innerHTML = Object.entries(b.items).map(([iid,qty])=>{
+    const info = findItem(iid);
+    return `<option value="${iid}">${info?esc(info.item.name):iid} (${qty} booked)</option>`;
+  }).join('');
+  const vsel = document.getElementById('sendToVenueSelect');
+  vsel.innerHTML = DATA.venues.filter(v2=>v2.id!==venueId).map(v2=>`<option value="${v2.id}">${esc(v2.name)}</option>`).join('');
+  document.getElementById('sendToQty').value = '';
+  ['sendToTransitFrom','sendToTransitTo'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sendToEvFrom').value = currentDate;
+  document.getElementById('sendToEvTo').value = currentDate;
+  document.getElementById('sendToErr').textContent = '';
+  openSheet('sendToSheet');
+  renderSendToQtyMax();
+}
+function renderSendToQtyMax(){
+  const b = DATA.bookings.find(b=>b.venueId===sendToVenueId && dateInBookingWindow(b,currentDate));
+  if(!b) return;
+  const iid = document.getElementById('sendToItemSelect').value;
+  const qty = b.items[iid]||0;
+  document.getElementById('sendToQtyHint').textContent = `Max: ${qty} currently booked here`;
+}
+function confirmSendTo(){
+  const b = DATA.bookings.find(b=>b.venueId===sendToVenueId && dateInBookingWindow(b,currentDate));
+  if(!b){ toast('Booking not found'); return; }
+  const iid = document.getElementById('sendToItemSelect').value;
+  const qty = parseInt(document.getElementById('sendToQty').value,10);
+  const destVenueId = document.getElementById('sendToVenueSelect').value;
+  const bookedQty = b.items[iid]||0;
+  const errEl = document.getElementById('sendToErr');
+  if(isNaN(qty)||qty<1){ errEl.textContent='Enter a valid quantity'; return; }
+  if(qty>bookedQty){ errEl.textContent=`Only ${bookedQty} currently booked here`; return; }
+  if(!destVenueId){ errEl.textContent='Pick a destination venue'; return; }
+
+  const g = id=>document.getElementById(id).value||null;
+  const evFrom=g('sendToEvFrom'), evTo=g('sendToEvTo');
+  if(!evFrom||!evTo){ errEl.textContent='Set destination event dates'; return; }
+  const transitOut = (g('sendToTransitFrom')&&g('sendToTransitTo'))?{from:g('sendToTransitFrom'),to:g('sendToTransitTo')}:null;
+  const event = {from:evFrom,to:evTo};
+  const from = transitOut?transitOut.from:evFrom;
+  const to = evTo;
+  const destDates = dateListBetween(from,to);
+
+  const info = findItem(iid);
+  const nm = info?info.item.name:iid;
+
+  // Conflict check at destination — exclude this item's own units being freed up from source
+  const conflicts = [];
+  destDates.forEach(d=>{
+    const av = availableQty(iid,d,null); // stock not yet freed from source since source booking still has it until we edit it below in same tx
+    // Since we haven't removed from source yet, add back qty being moved to represent "will be freed"
+    const effectiveAv = av + (dateInBookingWindow(b,d) ? qty : 0);
+    if(qty>effectiveAv) conflicts.push({date:d, available:effectiveAv});
+  });
+  if(conflicts.length){
+    let list = conflicts.slice(0,6).map(c=>`<li>${fmtDate(c.date)}: only ${c.available} free</li>`).join('');
+    errEl.innerHTML = `Conflicts at destination:<ul class="conflict-list">${list}</ul>`;
+    return;
+  }
+
+  // Remove qty from source booking (frees it from the transfer date onward — simplest: remove now)
+  const remainingQty = bookedQty - qty;
+  if(remainingQty>0) b.items[iid] = remainingQty;
+  else delete b.items[iid];
+
+  // Add to destination — merge into existing booking there if present
+  const existingAtDest = DATA.bookings.find(bk=>bk.venueId===destVenueId && destDates.some(d=>dateInBookingWindow(bk,d)));
+  if(existingAtDest){
+    existingAtDest.items[iid] = (existingAtDest.items[iid]||0) + qty;
+  } else {
+    DATA.bookings.push({
+      id: uid('bk'), venueId: destVenueId, clientName: b.clientName||'',
+      transitOut, event, transitBack: null, items: {[iid]: qty}
+    });
+  }
+  const destV = DATA.venues.find(v=>v.id===destVenueId);
+  const srcV = DATA.venues.find(v=>v.id===sendToVenueId);
+  logAction(`Sent ${qty}x ${nm} from ${srcV?srcV.name:''} to ${destV?destV.name:''}`);
+  saveData();
+  closeAllSheets();
+  render();
+  toast(`${qty}x ${nm} sent to ${destV?destV.name:'venue'} ✓`);
+}
+
 function openAddStock(itemId){ showDel('stock_'+itemId); setTimeout(()=>{ const el=document.getElementById('stockQty_'+itemId); if(el){el.value='';el.focus();} },50); }
 function confirmAddStock(itemId){
   const qty = parseInt(document.getElementById('stockQty_'+itemId).value,10);
@@ -1717,6 +2030,7 @@ function confirmAddStock(itemId){
   if(!info){ toast('Item not found'); return; }
   info.item.totalQty += qty;
   if(info.item.totalQty < 0) info.item.totalQty = 0;
+  logAction(`+${qty} stock added to ${info.item.name} (new total: ${info.item.totalQty})`);
   saveData();
   hideDel('stock_'+itemId);
   render();
@@ -1729,7 +2043,7 @@ function hideDel(id){ const el=document.getElementById(id); if(el) el.classList.
 
 function deleteItem(itemId){
   const info = findItem(itemId);
-  if(info){ info.cat.items = info.cat.items.filter(i=>i.id!==itemId); saveData(); }
+  if(info){ logAction(`Deleted item: ${info.item.name}`); info.cat.items = info.cat.items.filter(i=>i.id!==itemId); saveData(); }
   closeAllSheets();
   render();
   toast('Item deleted');
@@ -1855,6 +2169,26 @@ async function restoreInventoryNow(){
   }
 }
 
+function renderLogs(){
+  const main = document.getElementById('mainArea');
+  const logs = DATA.logs || [];
+  let html = '<div class="section-label">Activity Log — most recent first</div>';
+  if(logs.length===0){
+    html += '<div class="empty-state">No activity logged yet.</div>';
+  } else {
+    logs.forEach(l=>{
+      const d = new Date(l.ts);
+      const dateStr = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      const timeStr = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      html += `<div class="log-entry">
+        <div class="log-ts">${dateStr} · ${timeStr}</div>
+        <div class="log-text">${esc(l.text)}</div>
+      </div>`;
+    });
+  }
+  main.innerHTML = html;
+}
+
 function renderVenues(){
   const main = document.getElementById('mainArea');
   let html = '<div class="section-label">Venues</div>';
@@ -1911,10 +2245,11 @@ function saveVenue(){
   if(!name){ toast('Enter venue name'); return; }
   if(editingVenueId){
     const v = DATA.venues.find(v=>v.id===editingVenueId);
-    if(v) v.name = name;
+    if(v){ logAction(`Renamed venue "${v.name}" to "${name}"`); v.name = name; }
     toast('Venue updated');
   } else {
     DATA.venues.push({id: uid('v'), name});
+    logAction(`Added venue: ${name}`);
     toast('Venue added');
   }
   saveData();
@@ -1922,9 +2257,11 @@ function saveVenue(){
   render();
 }
 function deleteVenue(id){
+  const v = DATA.venues.find(v=>v.id===id);
   // Also cancel all bookings for this venue to free the stock
   DATA.bookings = DATA.bookings.filter(b=>b.venueId!==id);
   DATA.venues = DATA.venues.filter(v=>v.id!==id);
+  logAction(`Deleted venue: ${v?v.name:id} (and its bookings)`);
   saveData();
   render();
   toast('Venue and its bookings removed');
