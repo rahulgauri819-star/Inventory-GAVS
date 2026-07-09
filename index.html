@@ -322,7 +322,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v33</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v34</div>
       </div>
     </div>
   </div>
@@ -514,6 +514,12 @@
     <div class="field"><label>Category Name</label>
       <input type="text" id="catNameInput" placeholder="e.g. Lighting">
     </div>
+    <div class="field"><label>Type</label>
+      <div class="range-toggle">
+        <div id="catTypeAudio" class="active" onclick="setCatType('audio')">🔊 Audio</div>
+        <div id="catTypeVideo" onclick="setCatType('video')">🎥 Video</div>
+      </div>
+    </div>
   </div>
   <div class="sheet-foot"><button class="btn btn-primary" onclick="saveCategory()">Add Category</button></div>
 </div>
@@ -587,7 +593,7 @@ let _saving = false;
 function seedData(){
   return {
     categories: [
-      { id:'dnb', name:'DNB', items:[
+      { id:'dnb', name:'DNB', type:'audio', items:[
         {id:'dnb_ksl8', name:'KSL 8', totalQty:12},
         {id:'dnb_ksl12', name:'KSL 12', totalQty:4},
         {id:'dnb_slgsub', name:'SLG Sub', totalQty:8},
@@ -601,26 +607,26 @@ function seedData(){
         {id:'dnb_d80', name:'D80 Amplifier', totalQty:4},
         {id:'dnb_d90', name:'D90 Amplifier', totalQty:4},
       ]},
-      { id:'jbl', name:'JBL', items:[
+      { id:'jbl', name:'JBL', type:'audio', items:[
         {id:'jbl_vrx', name:'VRX', totalQty:90},
         {id:'jbl_base', name:'Base', totalQty:4},
         {id:'jbl_crown', name:'Crown Amplifier', totalQty:10},
         {id:'jbl_srx', name:'SRX Monitor', totalQty:12},
       ]},
-      { id:'rcf', name:'RCF', items:[
+      { id:'rcf', name:'RCF', type:'audio', items:[
         {id:'rcf_hdl20', name:'HDL 20', totalQty:24},
         {id:'rcf_base8002', name:'Base 8002', totalQty:6},
         {id:'rcf_monitor', name:'Monitor', totalQty:12},
       ]},
-      { id:'amp', name:'Amplifiers', items:[
+      { id:'amp', name:'Amplifiers', type:'audio', items:[
         {id:'amp_aq8', name:'AQ 8', totalQty:100},
         {id:'amp_aq12', name:'AQ 12', totalQty:20},
         {id:'amp_is500', name:'IS 500', totalQty:10},
       ]},
-      { id:'spk', name:'Speakers', items:[
+      { id:'spk', name:'Speakers', type:'audio', items:[
         {id:'spk_q12', name:'Q12', totalQty:120},
       ]},
-      { id:'mixd', name:'Audio Mixers (Digital)', items:[
+      { id:'mixd', name:'Audio Mixers (Digital)', type:'audio', items:[
         {id:'mix_digico', name:'Digico Quantum 338', totalQty:1},
         {id:'mix_avids6l', name:'Avid S6L', totalQty:1},
         {id:'mix_dlive', name:'Dlive 7000S', totalQty:1},
@@ -630,19 +636,19 @@ function seedData(){
         {id:'mix_siexp', name:'Si Expression', totalQty:1},
         {id:'mix_siimp', name:'Si Impact', totalQty:1},
       ]},
-      { id:'mixa', name:'Audio Mixers (Analog)', items:[
+      { id:'mixa', name:'Audio Mixers (Analog)', type:'audio', items:[
         {id:'mixa_y32', name:'Yamaha 32 Channel', totalQty:1},
         {id:'mixa_y16', name:'Yamaha 16 Channel', totalQty:1},
         {id:'mixa_sc16', name:'Soundcraft 16 Channel', totalQty:1},
       ]},
-      { id:'mikes', name:'Mikes', items:[
+      { id:'mikes', name:'Mikes', type:'audio', items:[
         {id:'mic_rackslx4d', name:'Shure Rack SLX4D', totalQty:1},
         {id:'mic_handslxd', name:'Shure Hand SLXD', totalQty:1},
         {id:'mic_collarslxd', name:'Shure Collar SLXD', totalQty:1},
         {id:'mic_podium', name:'Shure Podium Mike', totalQty:1},
         {id:'mic_axient', name:'Shure Axient Mike', totalQty:1},
       ]},
-      { id:'cables', name:'Cables & Accessories', items:[
+      { id:'cables', name:'Cables & Accessories', type:'audio', items:[
         {id:'acc_extboard', name:'Extension Boards', totalQty:1},
         {id:'acc_speakon', name:'Speakon Cables', totalQty:1},
         {id:'acc_xlr', name:'XLR Cables', totalQty:1},
@@ -719,6 +725,8 @@ async function loadFromFirebase(){
       const d = snap.data();
       if(!d.bookings) d.bookings = [];
       if(!d.dlog) d.dlog = {};
+      // Migration: tag categories without a type as 'audio' (all pre-existing gear)
+      if(d.categories) d.categories.forEach(c=>{ if(!c.type) c.type='audio'; });
       return d;
     }
     const seeded = seedData();
@@ -1082,16 +1090,16 @@ function openAddAssignment(preselectVenueId){
 
   const body = document.getElementById('assignBody');
   let html = '';
-  DATA.categories.forEach(c=>{
-    if(c.items.length===0) return;
-    html += `<div class="pick-cat" id="pc_${c.id}" onclick="togglePickCat('${c.id}')">
+  function pickCatHtml(c){
+    if(c.items.length===0) return '';
+    let h = `<div class="pick-cat" id="pc_${c.id}" onclick="togglePickCat('${c.id}')">
       <span>${esc(c.name)}</span>
       <span class="cnt" id="cnt_${c.id}"></span>
       <span class="chev">▶</span>
     </div>
     <div class="pick-group" id="pg_${c.id}">`;
     c.items.forEach(it=>{
-      html += `<div class="pick-row" data-item="${it.id}">
+      h += `<div class="pick-row" data-item="${it.id}">
         <div class="pick-nm" onclick="togglePickerWhere('${it.id}')" style="cursor:pointer;">${esc(it.name)}<span class="av" id="av_${it.id}"></span></div>
         <div class="stepper">
           <button onclick="stepQty('${it.id}',-1)">−</button>
@@ -1101,8 +1109,19 @@ function openAddAssignment(preselectVenueId){
       </div>
       <div class="where-inline" id="pwi_${it.id}"></div>`;
     });
-    html += `</div>`;
-  });
+    h += `</div>`;
+    return h;
+  }
+  const audioCats = DATA.categories.filter(c=>(c.type||'audio')==='audio');
+  const videoCats = DATA.categories.filter(c=>c.type==='video');
+  if(audioCats.some(c=>c.items.length)){
+    html += `<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--blue);font-weight:700;margin:10px 0 4px;">🔊 Audio</div>`;
+    audioCats.forEach(c=>{ html += pickCatHtml(c); });
+  }
+  if(videoCats.some(c=>c.items.length)){
+    html += `<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--green);font-weight:700;margin:14px 0 4px;">🎥 Video</div>`;
+    videoCats.forEach(c=>{ html += pickCatHtml(c); });
+  }
   body.innerHTML = html;
 
   // Pre-fill stepper display values from assignPickerQtys
@@ -1374,9 +1393,10 @@ function confirmAssignment(){
 function renderInventory(){
   const main = document.getElementById('mainArea');
   let html = '<div class="section-label">Inventory Master</div>';
-  DATA.categories.forEach(c=>{
+
+  function catBlockHtml(c){
     const outCount = c.items.filter(it=>availableQty(it.id,currentDate,null)<it.totalQty).length;
-    html += `<div class="cat-block">
+    let h = `<div class="cat-block">
       <div class="cat-head" id="cath_${c.id}" onclick="toggleInvCat('${c.id}')">
         <span><span class="cat-chev">▶</span>${esc(c.name)}</span>
         <span style="display:flex;align-items:center;gap:12px;">
@@ -1386,14 +1406,14 @@ function renderInventory(){
       </div>
       <div class="cat-items" id="cati_${c.id}">`;
     if(c.items.length===0){
-      html += `<div class="inv-item"><div class="inv-item-row" style="color:var(--sub);font-size:12.5px;">No items yet</div></div>`;
+      h += `<div class="inv-item"><div class="inv-item-row" style="color:var(--sub);font-size:12.5px;">No items yet</div></div>`;
     }
     c.items.forEach(it=>{
       const av = availableQty(it.id, currentDate, null);
       const pct = it.totalQty>0 ? Math.max(0,Math.min(100,(av/it.totalQty)*100)) : 100;
       const cls = av<=0?'zero':(pct<30?'low':'');
       const rep = it.repairQty||0;
-      html += `<div class="inv-item" id="invit_${it.id}">
+      h += `<div class="inv-item" id="invit_${it.id}">
         <div class="inv-item-row">
           <span class="nm" onclick="toggleWhereInline('${it.id}')">${esc(it.name)}${rep?`<span class="repair-tag">🔧${rep}</span>`:''}</span>
           <span class="stat">
@@ -1422,8 +1442,21 @@ function renderInventory(){
         </div>
       </div>`;
     });
-    html += `</div></div>`;
-  });
+    h += `</div></div>`;
+    return h;
+  }
+
+  const audioCats = DATA.categories.filter(c=>(c.type||'audio')==='audio');
+  const videoCats = DATA.categories.filter(c=>c.type==='video');
+
+  html += `<div class="section-label" style="color:var(--blue);">🔊 AUDIO EQUIPMENT</div>`;
+  if(audioCats.length===0) html += '<div class="empty-state">No audio categories yet.</div>';
+  audioCats.forEach(c=>{ html += catBlockHtml(c); });
+
+  html += `<div class="section-label" style="color:var(--green);margin-top:20px;">🎥 VIDEO EQUIPMENT</div>`;
+  if(videoCats.length===0) html += '<div class="empty-state">No video categories yet. Tap + to add one.</div>';
+  videoCats.forEach(c=>{ html += catBlockHtml(c); });
+
   main.innerHTML = html;
 }
 
@@ -1491,14 +1524,21 @@ function toggleWhereInline(itemId){
   el.classList.add('open');
 }
 
+let selectedCatType = 'audio';
+function setCatType(type){
+  selectedCatType = type;
+  document.getElementById('catTypeAudio').classList.toggle('active', type==='audio');
+  document.getElementById('catTypeVideo').classList.toggle('active', type==='video');
+}
 function openAddCategory(){
   document.getElementById('catNameInput').value = '';
+  setCatType('audio');
   openSheet('catSheet');
 }
 function saveCategory(){
   const name = document.getElementById('catNameInput').value.trim();
   if(!name){ toast('Enter a name'); return; }
-  DATA.categories.push({id: uid('cat'), name, items:[]});
+  DATA.categories.push({id: uid('cat'), name, type: selectedCatType, items:[]});
   saveData();
   closeAllSheets();
   render();
@@ -1529,7 +1569,7 @@ function openEditItem(catId, itemId){
 }
 function populateCatSelect(selectedId){
   const sel = document.getElementById('itemCatSelect');
-  sel.innerHTML = DATA.categories.map(c=>`<option value="${c.id}" ${c.id===selectedId?'selected':''}>${esc(c.name)}</option>`).join('');
+  sel.innerHTML = DATA.categories.map(c=>`<option value="${c.id}" ${c.id===selectedId?'selected':''}>${(c.type==='video'?'🎥 ':'🔊 ')}${esc(c.name)}</option>`).join('');
 }
 function saveItem(){
   const name = document.getElementById('itemNameInput').value.trim();
@@ -1951,12 +1991,30 @@ function summaryVenueBlock(entry){
   const phaseArr = [...phases];
   const phaseLine = phaseArr.map(p=>phaseBadge(p)).join('');
   const itemCount = Object.values(items).reduce((s,i)=>s+i.qty,0);
-  let itemRows = Object.values(items).map(i=>
-    `<div class="summary-stat" style="margin-bottom:6px;">
-      <span class="ss-name">${esc(i.name)}</span>
-      <span class="ss-qty">${i.qty}</span>
-    </div>`
-  ).join('');
+
+  // Split items into audio/video groups using category lookup
+  const audioItems=[], videoItems=[];
+  Object.entries(items).forEach(([iid,i])=>{
+    const info = findItem(iid);
+    const type = info && info.cat.type==='video' ? 'video' : 'audio';
+    (type==='video'?videoItems:audioItems).push(i);
+  });
+  function rowsHtml(arr){
+    return arr.map(i=>
+      `<div class="summary-stat" style="margin-bottom:6px;">
+        <span class="ss-name">${esc(i.name)}</span>
+        <span class="ss-qty">${i.qty}</span>
+      </div>`
+    ).join('');
+  }
+  let itemRows = '';
+  if(audioItems.length){
+    itemRows += `<div style="font-size:10px;color:var(--blue);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:6px 0 4px;">🔊 Audio</div>${rowsHtml(audioItems)}`;
+  }
+  if(videoItems.length){
+    itemRows += `<div style="font-size:10px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px;">🎥 Video</div>${rowsHtml(videoItems)}`;
+  }
+
   return `<div class="venue-card" style="margin-bottom:8px;">
     <div class="venue-head" onclick="toggleSummaryMin('${vid}')" style="cursor:pointer;">
       <div style="flex:1;min-width:0;">
