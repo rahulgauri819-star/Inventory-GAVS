@@ -337,7 +337,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v43</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v44</div>
       </div>
     </div>
   </div>
@@ -366,7 +366,10 @@
   <div class="sheet-handle"></div>
   <div class="sheet-head"><h3>New Booking</h3><span class="close" onclick="closeAllSheets()">×</span></div>
   <div class="sheet-body">
-    <div class="field"><label>Venue</label><select id="pickerVenueSelect" onchange="renderPickerItems()"></select></div>
+    <div class="field"><label>Venue</label>
+      <input type="text" id="pickerVenueSearch" list="venueDatalist" placeholder="Type to search venues…" oninput="syncVenueAutocomplete('pickerVenueSearch','pickerVenueSelect', renderPickerItems)">
+      <select id="pickerVenueSelect" onchange="renderPickerItems()" style="display:none;"></select>
+    </div>
     <div id="pickerAddVenue" style="text-align:right;margin:-8px 0 8px;">
       <span onclick="openPickerAddVenue()" style="color:var(--amber);font-size:12px;font-weight:600;cursor:pointer;">+ Add New Venue</span>
     </div>
@@ -479,7 +482,10 @@
       <input type="number" id="sendToQty" min="1" placeholder="qty">
       <div id="sendToQtyHint" style="font-size:11px;color:var(--sub);margin-top:4px;"></div>
     </div>
-    <div class="field"><label>Destination Venue</label><select id="sendToVenueSelect"></select></div>
+    <div class="field"><label>Destination Venue</label>
+      <input type="text" id="sendToVenueSearch" list="venueDatalist" placeholder="Type to search venues…" oninput="syncVenueAutocomplete('sendToVenueSearch','sendToVenueSelect')">
+      <select id="sendToVenueSelect" style="display:none;"></select>
+    </div>
     <div class="phase-range-block prb-out">
       <div class="prb-title"><span>🚚</span> Transit (optional)</div>
       <div class="range-dates">
@@ -503,7 +509,10 @@
   <div class="sheet-handle"></div>
   <div class="sheet-head"><h3>Edit Booking</h3><span class="close" onclick="closeAllSheets()">×</span></div>
   <div class="sheet-body">
-    <div class="field"><label>Venue</label><select id="editVenueSelect"></select></div>
+    <div class="field"><label>Venue</label>
+      <input type="text" id="editVenueSearch" list="venueDatalist" placeholder="Type to search venues…" oninput="syncVenueAutocomplete('editVenueSearch','editVenueSelect')">
+      <select id="editVenueSelect" style="display:none;"></select>
+    </div>
     <div class="field"><label>Client / Event Name</label>
       <input type="text" id="editClientName" placeholder="e.g. Sharma Wedding">
     </div>
@@ -587,6 +596,18 @@
   <div class="sheet-foot"><button class="btn btn-primary" onclick="confirmGenericPassword()">Confirm</button></div>
 </div>
 
+<!-- Rename Category sheet -->
+<div class="sheet" id="renameCatSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><h3>Rename Category</h3><span class="close" onclick="closeAllSheets()">×</span></div>
+  <div class="sheet-body">
+    <div class="field"><label>Category Name</label>
+      <input type="text" id="renameCatInput" placeholder="Category name">
+    </div>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="saveRenameCategory()">Save</button></div>
+</div>
+
 <div class="sheet" id="catSheet">
   <div class="sheet-handle"></div>
   <div class="sheet-head"><h3>Add Category</h3><span class="close" onclick="closeAllSheets()">×</span></div>
@@ -625,6 +646,8 @@
     </div>
   </div>
 </div>
+
+<datalist id="venueDatalist"></datalist>
 
 <div class="toast" id="toast"></div>
 
@@ -773,6 +796,32 @@ function setSaveInd(msg, color){
   if(!el) return;
   el.textContent = msg;
   el.style.color = color || 'var(--sub)';
+}
+
+/* Venue autocomplete — text input + datalist syncing to a hidden <select> so all existing .value reads keep working */
+function refreshVenueDatalist(){
+  const dl = document.getElementById('venueDatalist');
+  if(dl) dl.innerHTML = DATA.venues.map(v=>`<option value="${esc(v.name)}">`).join('');
+}
+function syncVenueAutocomplete(inputId, selectId, onMatched){
+  const input = document.getElementById(inputId);
+  const select = document.getElementById(selectId);
+  if(!input || !select) return;
+  const typed = input.value.trim().toLowerCase();
+  const match = DATA.venues.find(v=>v.name.toLowerCase()===typed);
+  if(match){
+    select.value = match.id;
+    select.dispatchEvent(new Event('change'));
+    if(onMatched) onMatched();
+  }
+}
+// Set the search input's displayed text + underlying select value together (used when opening a sheet pre-filled)
+function setVenueAutocompleteValue(inputId, selectId, venueId){
+  const v = DATA.venues.find(v=>v.id===venueId);
+  const input = document.getElementById(inputId);
+  const select = document.getElementById(selectId);
+  if(input) input.value = v ? v.name : '';
+  if(select) select.value = venueId || '';
 }
 
 function logAction(text){
@@ -981,6 +1030,7 @@ function render(){
     document.getElementById('mainArea').innerHTML = '<div class="empty-state">⏳ Loading data…</div>';
     return;
   }
+  refreshVenueDatalist();
   try{
     if(currentTab==='assign') renderAssign();
     else if(currentTab==='inventory') renderInventory();
@@ -1078,7 +1128,7 @@ function renderAssign(){
         </div>
         <div class="venue-head-actions" onclick="event.stopPropagation()">
           <span class="venue-min-btn${isMin?' minimized':''}" onclick="toggleVenueMin('${v.id}')">▾</span>
-          <span class="icon-btn edit-ic" onclick="openEditVenue('${v.id}')">✎</span>
+          <span class="icon-btn edit-ic" onclick="openEditVenue('${v.id}', true)">✎</span>
           <button class="add-btn" onclick="openAddAssignment('${v.id}')">${btnLabel}</button>
         </div>
       </div>
@@ -1259,6 +1309,7 @@ function openAddAssignment(preselectVenueId){
   const sel = document.getElementById('pickerVenueSelect');
   sel.innerHTML = DATA.venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
   if(preselectVenueId) sel.value = preselectVenueId;
+  setVenueAutocompleteValue('pickerVenueSearch','pickerVenueSelect', sel.value);
 
   buildPickerBody();
 
@@ -1287,6 +1338,7 @@ function savePickerNewVenue(){
   const sel = document.getElementById('pickerVenueSelect');
   sel.innerHTML = DATA.venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
   sel.value = newV.id;
+  setVenueAutocompleteValue('pickerVenueSearch','pickerVenueSelect', newV.id);
   document.getElementById('pickerNewVenueBox').style.display = 'none';
   document.getElementById('pickerNewVenueName').value = '';
   toast('Venue added');
@@ -1577,9 +1629,11 @@ function renderInventory(){
         <span><span class="cat-chev">▶</span>${esc(c.name)}
           <span onclick="event.stopPropagation();confirmToggleCatType('${c.id}')" style="margin-left:8px;font-size:10px;padding:2px 7px;border-radius:10px;background:${(c.type||'audio')==='video'?'#e8f7ee':'#e8f0fd'};color:${(c.type||'audio')==='video'?'var(--green)':'var(--blue)'};font-weight:700;cursor:pointer;">${(c.type||'audio')==='video'?'🎥 VIDEO':'🔊 AUDIO'}</span>
         </span>
-        <span style="display:flex;align-items:center;gap:12px;">
+        <span style="display:flex;align-items:center;gap:10px;">
           ${outCount?`<span style="font-size:10px;color:var(--amber);font-weight:600;">${outCount} out</span>`:''}
           <span class="cat-add" onclick="event.stopPropagation();openAddItem('${c.id}')">+ Item</span>
+          <span onclick="event.stopPropagation();openRenameCategory('${c.id}')" style="color:var(--sub);font-size:13px;cursor:pointer;" title="Rename category">✎</span>
+          <span onclick="event.stopPropagation();confirmDeleteCategory('${c.id}')" style="color:var(--red);font-size:13px;cursor:pointer;" title="Delete category">🗑</span>
         </span>
       </div>
       <div class="cat-items" id="cati_${c.id}">`;
@@ -1649,6 +1703,47 @@ function renderInventory(){
 
   main.innerHTML = html + '</div>';
 }
+let renamingCatId = null;
+function openRenameCategory(catId){
+  const cat = DATA.categories.find(c=>c.id===catId);
+  if(!cat) return;
+  renamingCatId = catId;
+  document.getElementById('renameCatInput').value = cat.name;
+  openSheet('renameCatSheet');
+}
+function saveRenameCategory(){
+  const newName = document.getElementById('renameCatInput').value.trim();
+  if(!newName){ toast('Enter a name'); return; }
+  const cat = DATA.categories.find(c=>c.id===renamingCatId);
+  if(!cat) return;
+  if(cat.name === newName){ closeAllSheets(); return; }
+  requirePassword(
+    `Rename category <strong>${esc(cat.name)}</strong> to <strong>${esc(newName)}</strong>?`,
+    ()=>{
+      logAction(`Renamed category "${cat.name}" to "${newName}"`);
+      cat.name = newName;
+      saveData();
+      render();
+      toast('Category renamed');
+    }
+  );
+}
+function confirmDeleteCategory(catId){
+  const cat = DATA.categories.find(c=>c.id===catId);
+  if(!cat) return;
+  const itemCount = cat.items.length;
+  requirePassword(
+    `Delete category <strong>${esc(cat.name)}</strong>${itemCount?` and all ${itemCount} item(s) inside it`:''}? This cannot be undone.`,
+    ()=>{
+      DATA.categories = DATA.categories.filter(c=>c.id!==catId);
+      logAction(`Deleted category: ${cat.name} (${itemCount} item(s))`);
+      saveData();
+      render();
+      toast('Category deleted');
+    }
+  );
+}
+
 function confirmToggleCatType(catId){
   const cat = DATA.categories.find(c=>c.id===catId);
   if(!cat) return;
@@ -1808,24 +1903,35 @@ function saveItem(){
   if(isNaN(qty) || qty < 0){ toast('Enter valid quantity'); return; }
   if(repair < 0 || repair > qty){ toast('Repair qty must be 0–' + qty); return; }
   const cat = DATA.categories.find(c=>c.id===catId);
+
   if(editingItemId){
-    const oldInfo = findItem(editingItemId);
-    if(oldInfo.cat.id !== catId){
-      oldInfo.cat.items = oldInfo.cat.items.filter(i=>i.id!==editingItemId);
-      cat.items.push({id:editingItemId, name, totalQty:qty, repairQty:repair});
-    } else {
-      oldInfo.item.name = name;
-      oldInfo.item.totalQty = qty;
-      oldInfo.item.repairQty = repair;
-    }
+    // Editing an existing item requires password
+    requirePassword(
+      `Save changes to <strong>${esc(name)}</strong>?`,
+      ()=>{
+        const oldInfo = findItem(editingItemId);
+        if(oldInfo.cat.id !== catId){
+          oldInfo.cat.items = oldInfo.cat.items.filter(i=>i.id!==editingItemId);
+          cat.items.push({id:editingItemId, name, totalQty:qty, repairQty:repair});
+        } else {
+          oldInfo.item.name = name;
+          oldInfo.item.totalQty = qty;
+          oldInfo.item.repairQty = repair;
+        }
+        logAction(`Edited item: ${name} (qty ${qty})`);
+        saveData();
+        render();
+        toast('Item saved');
+      }
+    );
   } else {
     cat.items.push({id: uid('it'), name, totalQty:qty, repairQty:repair});
+    logAction(`Added item: ${name} to ${cat.name} (qty ${qty})`);
+    saveData();
+    closeAllSheets();
+    render();
+    toast('Item saved');
   }
-  logAction(editingItemId ? `Edited item: ${name} (qty ${qty})` : `Added item: ${name} to ${cat.name} (qty ${qty})`);
-  saveData();
-  closeAllSheets();
-  render();
-  toast('Item saved');
 }
 let copySourceVenueId = null;
 
@@ -1991,6 +2097,7 @@ function openSendTo(venueId){
   }).join('');
   const vsel = document.getElementById('sendToVenueSelect');
   vsel.innerHTML = DATA.venues.filter(v2=>v2.id!==venueId).map(v2=>`<option value="${v2.id}">${esc(v2.name)}</option>`).join('');
+  document.getElementById('sendToVenueSearch').value = '';
   document.getElementById('sendToQty').value = '';
   ['sendToTransitFrom','sendToTransitTo'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('sendToEvFrom').value = currentDate;
@@ -2089,10 +2196,21 @@ function hideDel(id){ const el=document.getElementById(id); if(el) el.classList.
 
 function deleteItem(itemId){
   const info = findItem(itemId);
-  if(info){ logAction(`Deleted item: ${info.item.name}`); info.cat.items = info.cat.items.filter(i=>i.id!==itemId); saveData(); }
-  closeAllSheets();
-  render();
-  toast('Item deleted');
+  if(!info) return;
+  const nm = info.item.name;
+  requirePassword(
+    `Delete item <strong>${esc(nm)}</strong>? This cannot be undone.`,
+    ()=>{
+      const info2 = findItem(itemId);
+      if(info2){
+        logAction(`Deleted item: ${nm}`);
+        info2.cat.items = info2.cat.items.filter(i=>i.id!==itemId);
+        saveData();
+      }
+      render();
+      toast('Item deleted');
+    }
+  );
 }
 
 /* ---------------- WHERE IS IT ---------------- */
@@ -2215,20 +2333,28 @@ async function restoreInventoryNow(){
   }
 }
 
+const LOG_EXPANDED = {};
+function toggleLogExpand(idx){
+  LOG_EXPANDED[idx] = !LOG_EXPANDED[idx];
+  render();
+}
 function renderLogs(){
   const main = document.getElementById('mainArea');
   const logs = DATA.logs || [];
-  let html = '<div class="section-label">Activity Log — most recent first</div>';
+  let html = '<div class="section-label">Activity Log — tap any entry for full details</div>';
   if(logs.length===0){
     html += '<div class="empty-state">No activity logged yet.</div>';
   } else {
-    logs.forEach(l=>{
+    logs.forEach((l,idx)=>{
       const d = new Date(l.ts);
       const dateStr = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-      const timeStr = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-      html += `<div class="log-entry">
-        <div class="log-ts">${dateStr} · ${timeStr}</div>
-        <div class="log-text">${esc(l.text)}</div>
+      const timeStr = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const isExpanded = LOG_EXPANDED[idx] === true;
+      const isLong = l.text.length > 70;
+      const summary = isLong && !isExpanded ? l.text.slice(0,70)+'…' : l.text;
+      html += `<div class="log-entry" onclick="toggleLogExpand(${idx})" style="cursor:pointer;">
+        <div class="log-ts">${dateStr} · ${timeStr}${isLong?` <span style="float:right;color:var(--amber);font-weight:700;">${isExpanded?'▲ less':'▼ more'}</span>`:''}</div>
+        <div class="log-text">${esc(summary)}</div>
       </div>`;
     });
   }
@@ -2277,13 +2403,13 @@ function openAddVenue(){
   document.getElementById('deleteVenueBtn').style.display = 'none';
   openSheet('venueSheet');
 }
-function openEditVenue(id){
+function openEditVenue(id, hideDelete){
   const v = DATA.venues.find(v=>v.id===id);
   if(!v) return;
   editingVenueId = id;
   document.getElementById('venueSheetTitle').textContent = 'Edit Venue';
   document.getElementById('venueNameInput').value = v.name;
-  document.getElementById('deleteVenueBtn').style.display = 'block';
+  document.getElementById('deleteVenueBtn').style.display = hideDelete ? 'none' : 'block';
   openSheet('venueSheet');
 }
 function saveVenue(){
@@ -2500,11 +2626,15 @@ function makeSummaryPDF(venueId, typeFilter){
       const nm = info?info.item.name:iid;
       const itype = info && info.cat.type==='video' ? 'video' : 'audio';
       if(typeFilter && itype!==typeFilter) return;
-      if(!items[iid]) items[iid]={name:nm,qty:0};
+      if(!items[iid]) items[iid]={id:iid,name:nm,qty:0};
       items[iid].qty += qty;
     });
   });
-  const rows = Object.values(items).sort((a,b)=>a.name.localeCompare(b.name));
+  // Order by Inventory tab order: category order, then item order within category (not alphabetical)
+  const orderIndex = {};
+  let idx = 0;
+  DATA.categories.forEach(c=>{ c.items.forEach(it=>{ orderIndex[it.id] = idx++; }); });
+  const rows = Object.values(items).sort((a,b)=>(orderIndex[a.id]??9999)-(orderIndex[b.id]??9999));
   if(!rows.length){ w.close(); toast('No '+(typeFilter||'')+' items to print'); return; }
 
   const dateStr = new Date(currentDate+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase();
@@ -2565,6 +2695,7 @@ function openEditBooking(bookingId){
   // Populate venue select
   const sel = document.getElementById('editVenueSelect');
   sel.innerHTML = DATA.venues.map(v=>`<option value="${v.id}"${v.id===b.venueId?' selected':''}>${esc(v.name)}</option>`).join('');
+  setVenueAutocompleteValue('editVenueSearch','editVenueSelect', b.venueId);
 
   // Populate dates
   const g = (id,val)=>{ const el=document.getElementById(id); if(el) el.value=val||''; };
