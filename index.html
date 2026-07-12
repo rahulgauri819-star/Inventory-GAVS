@@ -337,7 +337,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v41</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v43</div>
       </div>
     </div>
   </div>
@@ -580,7 +580,7 @@
   <div class="sheet-body">
     <div id="catTypePassInfo" style="font-size:13px;color:var(--sub);margin-bottom:12px;"></div>
     <div class="field"><label>App Password</label>
-      <input type="password" id="catTypePassInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')confirmCatTypeChange()">
+      <input type="password" id="catTypePassInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')confirmGenericPassword()">
     </div>
     <div id="catTypePassErr" style="color:var(--red);font-size:12.5px;"></div>
   </div>
@@ -785,7 +785,7 @@ function saveData(){
   // Firebase ONLY — no localStorage
   _saving = true; // protect local changes from being overwritten by incoming snapshots during the debounce wait
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(()=>saveCloud(), 400);
+  _saveTimer = setTimeout(()=>saveCloud(), 80); // short debounce — just enough to batch rapid clicks, minimizes risk of losing data on quick refresh/navigation
 }
 
 function saveCloud(){
@@ -1956,12 +1956,15 @@ function confirmCallOff(){
   }
 
   // Create a short booking representing the called-off units, ending on retDate (so they're free from retDate onward)
+  // Clamp so the window is never invalid (to must never be before from), e.g. if called off during transit-out
+  const shortFrom = b.event.from;
+  const shortTo = retDate > shortFrom ? (retDate < b.event.to ? retDate : b.event.to) : shortFrom;
   const shortBooking = {
     id: uid('bk'),
     venueId: callOffVenueId,
     clientName: (b.clientName||'') + ' (called off early)',
     transitOut: b.transitOut,
-    event: { from: b.event.from, to: retDate < b.event.to ? retDate : b.event.to },
+    event: { from: shortFrom, to: shortTo },
     transitBack: null,
     items: { [iid]: qty }
   };
@@ -2332,6 +2335,8 @@ function deleteVenueFromSheet(){
 /* ---------------- SHEET / OVERLAY CONTROLS ---------------- */
 function openSheet(id){
   document.getElementById('overlay').classList.add('show');
+  // Close any other currently-open sheet first to prevent visual stacking (e.g. password prompt opening over Edit Venue sheet)
+  document.querySelectorAll('.sheet.show').forEach(s=>{ if(s.id!==id) s.classList.remove('show'); });
   document.getElementById(id).classList.add('show');
 }
 function closeAllSheets(){
@@ -2691,14 +2696,26 @@ function assignedQtyForItemExcludingBooking(itemId, date, excludeBookingId){
   return total;
 }
 
-/* Prevent double-tap-to-zoom on iOS Safari (ignores viewport meta for this gesture) */
+/* Prevent double-tap-to-zoom on iOS Safari (ignores viewport meta for this gesture),
+   but don't interfere with legitimate rapid taps on buttons/steppers/inputs */
 let _lastTouchEnd = 0;
 document.addEventListener('touchend', function(e){
+  const tag = e.target.tagName;
+  const isInteractive = tag==='BUTTON' || tag==='INPUT' || tag==='SELECT' || tag==='TEXTAREA' || e.target.closest('button, .stepper, input, select, textarea, .del-confirm-btns');
+  if(isInteractive) return; // allow normal rapid tapping on controls
   const now = Date.now();
   if(now - _lastTouchEnd <= 350){ e.preventDefault(); }
   _lastTouchEnd = now;
 }, {passive:false});
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
+
+/* Flush any pending save immediately if the page is about to close/refresh */
+window.addEventListener('beforeunload', function(){
+  if(_saveTimer){
+    clearTimeout(_saveTimer);
+    try{ DOC_REF.set(DATA); }catch(e){}
+  }
+});
 
 /* ---------------- INIT ---------------- */
 document.getElementById('dateInput').value = currentDate;
