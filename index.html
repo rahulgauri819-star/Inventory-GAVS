@@ -337,7 +337,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v44</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v46</div>
       </div>
     </div>
   </div>
@@ -830,8 +830,20 @@ function logAction(text){
   if(DATA.logs.length > 500) DATA.logs = DATA.logs.slice(0, 500); // cap size
 }
 
-function saveData(){
-  // Firebase ONLY — no localStorage
+// Tracks which top-level fields have pending unsaved changes during the debounce window,
+// so the eventual write only touches those fields (Firestore field-level update),
+// instead of overwriting the whole document and risking clobbering fields another
+// device/tab changed concurrently.
+let _pendingFields = new Set();
+
+function saveData(fields){
+  // fields: array of top-level DATA keys this change touched, e.g. ['venues'], ['bookings','logs'].
+  // If omitted (legacy call sites not yet updated), fall back to saving everything — safe default.
+  if(fields && fields.length){
+    fields.forEach(f=>_pendingFields.add(f));
+  } else {
+    ['categories','venues','bookings','dlog','logs'].forEach(f=>_pendingFields.add(f));
+  }
   _saving = true; // protect local changes from being overwritten by incoming snapshots during the debounce wait
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(()=>saveCloud(), 80); // short debounce — just enough to batch rapid clicks, minimizes risk of losing data on quick refresh/navigation
@@ -840,7 +852,12 @@ function saveData(){
 function saveCloud(){
   _saving = true;
   setSaveInd('Saving…', 'var(--amber)');
-  DOC_REF.set(DATA)
+  const fieldsToSave = [..._pendingFields];
+  _pendingFields = new Set();
+  const payload = {};
+  fieldsToSave.forEach(f=>{ payload[f] = DATA[f]; });
+  if(Object.keys(payload).length===0){ _saving=false; return; }
+  DOC_REF.update(payload)
     .then(()=>{
       _saving = false;
       hideNetworkError();
@@ -896,7 +913,7 @@ async function initApp(){
   const venueIds = new Set((DATA.venues||[]).map(v=>v.id));
   const before = DATA.bookings.length;
   DATA.bookings = DATA.bookings.filter(b=> b && b.event && b.event.from && b.event.to && venueIds.has(b.venueId));
-  if(DATA.bookings.length !== before){ try{ await DOC_REF.set(DATA); }catch(e){} }
+  if(DATA.bookings.length !== before){ try{ await DOC_REF.update({bookings: DATA.bookings}); }catch(e){} }
   document.getElementById('dateInput').value = currentDate;
   DOC_REF.onSnapshot(snap=>{
     if(snap.exists && !_saving){
@@ -1157,7 +1174,7 @@ function removeItemFromBooking(bookingId, itemId){
   if(Object.keys(b.items).length===0){
     DATA.bookings = DATA.bookings.filter(x=>x.id!==bookingId);
   }
-  saveData();
+  saveData(['bookings']);
   render();
   toast('Removed');
 }
@@ -1216,7 +1233,7 @@ function deleteBooking(id){
   const w = b ? bookingWindow(b) : null;
   DATA.bookings = DATA.bookings.filter(b=>b.id!==id);
   logAction(`Cancelled booking at ${v?v.name:'venue'}${w?` — Event: ${fmtDate(w.from)} → ${fmtDate(w.to)}`:''}`);
-  saveData();
+  saveData(['bookings','logs']);
   render();
   toast('Booking cancelled');
 }
@@ -1225,7 +1242,7 @@ function removeAssignment(venueId, itemId){
   const dl = dayLog(currentDate);
   if(dl.venues[venueId]){
     delete dl.venues[venueId][itemId];
-    saveData();
+    saveData(['dlog']);
     render();
     toast('Removed');
   }
@@ -1333,7 +1350,7 @@ function savePickerNewVenue(){
   const newV = {id: uid('v'), name};
   DATA.venues.push(newV);
   logAction(`Added venue: ${newV.name}`);
-  saveData();
+  saveData(['venues','logs']);
   // Refresh select and pick new venue
   const sel = document.getElementById('pickerVenueSelect');
   sel.innerHTML = DATA.venues.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('');
@@ -1557,7 +1574,7 @@ function confirmAssignment(){
     const vName = (DATA.venues.find(v=>v.id===venueId)||{}).name||'venue';
     const w = bookingWindow(existingBooking);
     logAction(`Updated booking at ${vName} — ${Object.keys(items).length} item type(s) set — Event: ${fmtDate(w.from)} → ${fmtDate(w.to)}`);
-    saveData(); closeAllSheets(); render();
+    saveData(['bookings','logs']); closeAllSheets(); render();
     toast('Booking updated');
     return;
   }
@@ -1572,7 +1589,7 @@ function confirmAssignment(){
     items
   });
   logAction(`Booked ${Object.keys(items).length} item type(s) to ${(DATA.venues.find(v=>v.id===venueId)||{}).name||'venue'} — Event: ${fmtDate(phases.event.from)} → ${fmtDate(phases.event.to)}`);
-  saveData();
+  saveData(['bookings','logs']);
   closeAllSheets();
   render();
   toast('Booked — inventory blocked ' + fmtDate(dates[0]) + ' → ' + fmtDate(dates[dates.length-1]));
@@ -1722,7 +1739,7 @@ function saveRenameCategory(){
     ()=>{
       logAction(`Renamed category "${cat.name}" to "${newName}"`);
       cat.name = newName;
-      saveData();
+      saveData(['categories','logs']);
       render();
       toast('Category renamed');
     }
@@ -1737,7 +1754,7 @@ function confirmDeleteCategory(catId){
     ()=>{
       DATA.categories = DATA.categories.filter(c=>c.id!==catId);
       logAction(`Deleted category: ${cat.name} (${itemCount} item(s))`);
-      saveData();
+      saveData(['categories','logs']);
       render();
       toast('Category deleted');
     }
@@ -1754,7 +1771,7 @@ function confirmToggleCatType(catId){
     ()=>{
       cat.type = newType;
       logAction(`Changed category "${cat.name}" type to ${newType==='video'?'Video':'Audio'}`);
-      saveData();
+      saveData(['categories','logs']);
       render();
       toast(`${cat.name} moved to ${newType==='video'?'🎥 Video':'🔊 Audio'}`);
     }
@@ -1862,7 +1879,7 @@ function saveCategory(){
   if(!name){ toast('Enter a name'); return; }
   DATA.categories.push({id: uid('cat'), name, type: selectedCatType, items:[]});
   logAction(`Added category: ${name} (${selectedCatType==='video'?'Video':'Audio'})`);
-  saveData();
+  saveData(['categories','logs']);
   closeAllSheets();
   render();
   toast('Category added');
@@ -1919,7 +1936,7 @@ function saveItem(){
           oldInfo.item.repairQty = repair;
         }
         logAction(`Edited item: ${name} (qty ${qty})`);
-        saveData();
+        saveData(['categories','logs']);
         render();
         toast('Item saved');
       }
@@ -1927,7 +1944,7 @@ function saveItem(){
   } else {
     cat.items.push({id: uid('it'), name, totalQty:qty, repairQty:repair});
     logAction(`Added item: ${name} to ${cat.name} (qty ${qty})`);
-    saveData();
+    saveData(['categories','logs']);
     closeAllSheets();
     render();
     toast('Item saved');
@@ -1989,7 +2006,7 @@ function confirmCopyBooking(){
     Object.entries(b.items).forEach(([iid,qty])=>{ existingAtTarget.items[iid]=qty; });
     if(clientName) existingAtTarget.clientName = clientName;
     logAction(`Copied booking to ${vNameCopy} (merged) — Event: ${fmtDate(event.from)} → ${fmtDate(event.to)}`);
-    saveData(); closeAllSheets(); render();
+    saveData(['bookings','logs']); closeAllSheets(); render();
     toast('Merged into existing booking ✓');
     return;
   }
@@ -1999,7 +2016,7 @@ function confirmCopyBooking(){
     transitOut, event, transitBack, items:{...b.items}
   });
   logAction(`Copied booking to ${vNameCopy} — Event: ${fmtDate(event.from)} → ${fmtDate(event.to)}`);
-  saveData(); closeAllSheets(); render();
+  saveData(['bookings','logs']); closeAllSheets(); render();
   toast('Booking copied ✓');
 }
 
@@ -2076,7 +2093,7 @@ function confirmCallOff(){
   };
   DATA.bookings.push(shortBooking);
   logAction(`Called off ${qty}x ${nm} — free from ${fmtDate(retDate)}`);
-  saveData();
+  saveData(['bookings','logs']);
   closeAllSheets();
   render();
   toast(`${qty}x ${nm} called off — free from ${fmtDate(retDate)}`);
@@ -2169,7 +2186,7 @@ function confirmSendTo(){
   const destV = DATA.venues.find(v=>v.id===destVenueId);
   const srcV = DATA.venues.find(v=>v.id===sendToVenueId);
   logAction(`Sent ${qty}x ${nm} from ${srcV?srcV.name:''} to ${destV?destV.name:''} — Event: ${fmtDate(event.from)} → ${fmtDate(event.to)}`);
-  saveData();
+  saveData(['bookings','logs']);
   closeAllSheets();
   render();
   toast(`${qty}x ${nm} sent to ${destV?destV.name:'venue'} ✓`);
@@ -2184,7 +2201,7 @@ function confirmAddStock(itemId){
   info.item.totalQty += qty;
   if(info.item.totalQty < 0) info.item.totalQty = 0;
   logAction(`+${qty} stock added to ${info.item.name} (new total: ${info.item.totalQty})`);
-  saveData();
+  saveData(['categories','logs']);
   hideDel('stock_'+itemId);
   render();
   toast(`+${qty} added to ${info.item.name} (total: ${info.item.totalQty})`);
@@ -2205,7 +2222,7 @@ function deleteItem(itemId){
       if(info2){
         logAction(`Deleted item: ${nm}`);
         info2.cat.items = info2.cat.items.filter(i=>i.id!==itemId);
-        saveData();
+        saveData(['categories','logs']);
       }
       render();
       toast('Item deleted');
@@ -2308,7 +2325,7 @@ function cleanupDuplicateBookings(){
   });
   if(mergeCount===0){ toast('No duplicates found ✓'); return; }
   DATA.bookings = DATA.bookings.filter(b=>!toDelete.has(b.id));
-  saveData();
+  saveData(['bookings']);
   render();
   toast(`Merged ${mergeCount} duplicate booking${mergeCount!==1?'s':''} ✓`);
 }
@@ -2424,7 +2441,7 @@ function saveVenue(){
       ()=>{
         logAction(`Renamed venue "${v.name}" to "${name}"`);
         v.name = name;
-        saveData();
+        saveData(['venues','logs']);
         render();
         toast('Venue updated');
       }
@@ -2432,7 +2449,7 @@ function saveVenue(){
   } else {
     DATA.venues.push({id: uid('v'), name});
     logAction(`Added venue: ${name}`);
-    saveData();
+    saveData(['venues','logs']);
     closeAllSheets();
     render();
     toast('Venue added');
@@ -2447,7 +2464,7 @@ function deleteVenue(id){
       DATA.bookings = DATA.bookings.filter(b=>b.venueId!==id);
       DATA.venues = DATA.venues.filter(v2=>v2.id!==id);
       logAction(`Deleted venue: ${v.name} (and its bookings)`);
-      saveData();
+      saveData(['venues','bookings','logs']);
       render();
       toast('Venue and its bookings removed');
     }
@@ -2809,7 +2826,7 @@ function saveBookingEdit(){
   b.clientName = document.getElementById('editClientName').value.trim() || b.clientName || '';
   const vName2 = (DATA.venues.find(v=>v.id===venueId)||{}).name||'venue';
   logAction(`Edited booking at ${vName2} — Event: ${fmtDate(event.from)} → ${fmtDate(event.to)}`);
-  saveData();
+  saveData(['bookings','logs']);
   closeAllSheets();
   render();
   toast('Booking updated');
@@ -2828,23 +2845,31 @@ function assignedQtyForItemExcludingBooking(itemId, date, excludeBookingId){
 }
 
 /* Prevent double-tap-to-zoom on iOS Safari (ignores viewport meta for this gesture),
-   but don't interfere with legitimate rapid taps on buttons/steppers/inputs */
+   but don't interfere with legitimate rapid taps on buttons/steppers/inputs,
+   and only suppress genuine double-taps at the SAME location (not two unrelated fast taps) */
 let _lastTouchEnd = 0;
+let _lastTouchX = 0, _lastTouchY = 0;
 document.addEventListener('touchend', function(e){
   const tag = e.target.tagName;
   const isInteractive = tag==='BUTTON' || tag==='INPUT' || tag==='SELECT' || tag==='TEXTAREA' || e.target.closest('button, .stepper, input, select, textarea, .del-confirm-btns');
   if(isInteractive) return; // allow normal rapid tapping on controls
   const now = Date.now();
-  if(now - _lastTouchEnd <= 350){ e.preventDefault(); }
+  const touch = e.changedTouches && e.changedTouches[0];
+  const x = touch ? touch.clientX : 0, y = touch ? touch.clientY : 0;
+  const sameSpot = Math.abs(x-_lastTouchX) < 30 && Math.abs(y-_lastTouchY) < 30;
+  if(now - _lastTouchEnd <= 350 && sameSpot){ e.preventDefault(); }
   _lastTouchEnd = now;
+  _lastTouchX = x; _lastTouchY = y;
 }, {passive:false});
 document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
 
 /* Flush any pending save immediately if the page is about to close/refresh */
 window.addEventListener('beforeunload', function(){
-  if(_saveTimer){
+  if(_saveTimer && _pendingFields.size > 0){
     clearTimeout(_saveTimer);
-    try{ DOC_REF.set(DATA); }catch(e){}
+    const payload = {};
+    _pendingFields.forEach(f=>{ payload[f] = DATA[f]; });
+    try{ DOC_REF.update(payload); }catch(e){}
   }
 });
 
