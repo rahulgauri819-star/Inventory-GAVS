@@ -337,7 +337,7 @@
       <div>
         <h1>GAVS Inventory</h1>
         <div class="sub">Grover Audio Visual Services</div>
-        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v46</div>
+        <div style="font-size:9px;color:var(--amber);font-weight:700;letter-spacing:1px;">BUILD v47</div>
       </div>
     </div>
   </div>
@@ -859,10 +859,14 @@ function saveCloud(){
   if(Object.keys(payload).length===0){ _saving=false; return; }
   DOC_REF.update(payload)
     .then(()=>{
-      _saving = false;
       hideNetworkError();
       setSaveInd('Saved ✓', 'var(--green)');
       setTimeout(()=>setSaveInd(''), 2000);
+      // Keep protecting local data for a short grace period after our own write completes.
+      // This guards against Firestore's own real-time echo of our write (or a rare lagging
+      // read) arriving slightly stale and silently overwriting what we just saved, if the
+      // user immediately performs another action (e.g. create venue then book to it right away).
+      setTimeout(()=>{ if(_pendingFields.size===0) _saving = false; }, 1500);
     })
     .catch(e=>{
       _saving = false;
